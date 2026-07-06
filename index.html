@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIAPS — Monitor de Indicadores APS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     TELA INICIAL
+══════════════════════════════════════════ -->
+<div id="tela-inicial">
+
+  <div class="home-header">
+    <div class="home-logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M12 3v18M3 12h18" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="4" fill="none" stroke="#60A5FA" stroke-width="1.8"/>
+      </svg>
+    </div>
+    <div class="home-header-text">
+      <h1>SIAPS · Monitor de Indicadores</h1>
+      <p>Sistema de Informação para a Atenção Primária à Saúde — SUS</p>
+    </div>
+  </div>
+
+  <div class="home-hero">
+    <div class="home-eyebrow">
+      <span>●</span> Atenção Primária à Saúde
+    </div>
+    <h2>Qualidade do cuidado<br><em>em tempo real</em></h2>
+    <p>Cruce a lista nominal do SIAPS com o cadastro do e-SUS PEC e monitore o cumprimento dos indicadores por pessoa, por equipe e por critério.</p>
+
+    <div class="modulos-grid">
+
+      <!-- C6 — ATIVO -->
+      <div class="modulo-card" onclick="abrirModulo('c6')">
+        <span class="modulo-icon">👴</span>
+        <div class="modulo-badge">C6 · Ativo</div>
+        <h3>Cuidado da Pessoa Idosa</h3>
+        <p>Monitore os 4 critérios de atenção integral ao idoso (≥60 anos) e identifique quem precisa de atenção prioritária.</p>
+        <div class="modulo-criterios">
+          <span class="crit-chip">A · Consulta</span>
+          <span class="crit-chip">B · Antropometria</span>
+          <span class="crit-chip">C · Visita ACS</span>
+          <span class="crit-chip">D · Influenza</span>
+        </div>
+        <div class="modulo-footer">
+          <span style="font-size:11px;color:rgba(255,255,255,.35)">25 pts por critério · máx. 100 pts</span>
+          <button class="btn-acessar">Acessar →</button>
+        </div>
+      </div>
+
+      <!-- C5 — ATIVO -->
+      <div class="modulo-card" onclick="abrirModulo('c5')">
+        <span class="modulo-icon">❤️</span>
+        <div class="modulo-badge">C5 · Ativo</div>
+        <h3>Controle da Hipertensão</h3>
+        <p>Acompanhamento de adultos hipertensos cadastrados na equipe de saúde, com base nos 4 critérios oficiais.</p>
+        <div class="modulo-criterios">
+          <span class="crit-chip">A · Consulta</span>
+          <span class="crit-chip">B · Pressão arterial</span>
+          <span class="crit-chip">C · Peso e altura</span>
+          <span class="crit-chip">D · Visita ACS</span>
+        </div>
+        <div class="modulo-footer">
+          <span style="font-size:11px;color:rgba(255,255,255,.35)">25 pts por critério · máx. 100 pts</span>
+          <button class="btn-acessar">Acessar →</button>
+        </div>
+      </div>
+
+      <!-- C4 — ATIVO -->
+      <div class="modulo-card" onclick="abrirModulo('c4')">
+        <span class="modulo-icon">🩸</span>
+        <div class="modulo-badge">C4 · Ativo</div>
+        <h3>Controle da Diabetes</h3>
+        <p>Acompanhamento de adultos diabéticos cadastrados na equipe de saúde, com base nos 6 critérios oficiais.</p>
+        <div class="modulo-criterios">
+          <span class="crit-chip">A · Consulta</span>
+          <span class="crit-chip">B · Pressão arterial</span>
+          <span class="crit-chip">C · Peso e altura</span>
+          <span class="crit-chip">D · Visita ACS</span>
+          <span class="crit-chip">E · Hemoglobina Glicada</span>
+          <span class="crit-chip">F · Avaliação dos pés</span>
+        </div>
+        <div class="modulo-footer">
+          <span style="font-size:11px;color:rgba(255,255,255,.35)">pontos variáveis por critério · máx. 100 pts</span>
+          <button class="btn-acessar">Acessar →</button>
+        </div>
+      </div>
+
+      <!-- C2 — ATIVO -->
+      <div class="modulo-card" onclick="abrirModulo('c2')">
+        <span class="modulo-icon">👶</span>
+        <div class="modulo-badge">C2 · Ativo</div>
+        <h3>Desenvolvimento Infantil</h3>
+        <p>Monitore os 5 critérios de atenção integral à criança (≤2 anos) e acompanhe quem precisa de atenção prioritária.</p>
+        <div class="modulo-criterios">
+          <span class="crit-chip">A · Consultas</span>
+          <span class="crit-chip">B · 9 consultas até 2a</span>
+          <span class="crit-chip">C · 9 peso+altura</span>
+          <span class="crit-chip">D · 2 visitas ACS</span>
+          <span class="crit-chip">E · Vacinas em dia</span>
+        </div>
+        <div class="modulo-footer">
+          <span style="font-size:11px;color:rgba(255,255,255,.35)">20 pts por critério · máx. 100 pts</span>
+          <button class="btn-acessar">Acessar →</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="home-footer">
+    <p>e-SUS PEC · Ministério da Saúde · Atenção Primária à Saúde</p>
+    <p>Processamento local — nenhum dado é enviado para servidores externos</p>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     TELA DO MÓDULO
+══════════════════════════════════════════ -->
+<div id="tela-modulo" style="display:none;flex-direction:column">
+
+  <!-- Top Bar -->
+  <div class="mod-topbar">
+    <button class="btn-voltar" onclick="voltarInicio()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Início
+    </button>
+    <div class="topbar-sep"></div>
+    <div class="topbar-title">
+      <span id="mod-icone">👴</span>
+      <span id="mod-titulo">C6 — Cuidado da Pessoa Idosa</span>
+      <span class="topbar-badge">MAR/26</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-top btn-primary" id="btn-processar" onclick="processar()" disabled>
+        ⚡ Cruzar dados
+      </button>
+      <button class="btn-top btn-outline" id="btn-exportar" onclick="exportar()" disabled>
+        ⬇ Excel
+      </button>
+      <button class="btn-top btn-pdf" id="btn-imprimir" onclick="imprimirPDF()" disabled>
+        🖨 PDF
+      </button>
+      <button class="btn-top btn-outline" onclick="limpar()">↺ Limpar</button>
+    </div>
+  </div>
+
+  <div class="mod-body">
+
+    <!-- Sidebar -->
+    <div class="mod-sidebar">
+
+      <!-- Uploads -->
+      <div class="sidebar-section">
+        <div class="sidebar-label">Arquivos</div>
+
+        <div class="upload-mini" id="card-siaps"
+             ondragover="ev(event,'siaps',true)" ondragleave="ev(event,'siaps',false)" ondrop="drop(event,'siaps')">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="loadFile(event,'siaps')">
+          <div class="upload-mini-icon">📊</div>
+          <h4>Relatório SIAPS</h4>
+          <p>.xlsx · Lista Nominal</p>
+          <div class="status" id="status-siaps"></div>
+        </div>
+
+        <div class="upload-mini" id="card-vinc"
+             ondragover="ev(event,'vinc',true)" ondragleave="ev(event,'vinc',false)" ondrop="drop(event,'vinc')">
+          <input type="file" accept=".csv,.xlsx" onchange="loadFile(event,'vinc')">
+          <div class="upload-mini-icon">👥</div>
+          <h4>Cidadãos Vinculados</h4>
+          <p>.csv · e-SUS PEC</p>
+          <div class="status" id="status-vinc"></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="sidebar-section" id="sidebar-stats" style="display:none">
+        <div class="sidebar-label">Painel</div>
+
+        <div class="stat-mini cor-total" onclick="aplicarFiltroRapido('')" title="Ver todos">
+          <div>
+            <div class="stat-mini-label">Total no SIAPS</div>
+            <div class="stat-mini-sub" id="st-total-sub"></div>
+          </div>
+          <div class="stat-mini-val" id="st-total">—</div>
+        </div>
+
+        <div class="stat-mini cor-sem" onclick="aplicarFiltroRapido('sem')" title="Filtrar sem cadastro PEC">
+          <div>
+            <div class="stat-mini-label">Não vinculados à ESF</div>
+            <div class="stat-mini-sub" id="st-sem-sub"></div>
+          </div>
+          <div class="stat-mini-val" id="st-sem">—</div>
+        </div>
+
+        <div class="stat-mini cor-ok" onclick="aplicarFiltroRapido('completo')" title="Filtrar completos">
+          <div>
+            <div class="stat-mini-label">Completos (100 pts)</div>
+            <div class="stat-mini-sub" id="st-ok-sub"></div>
+          </div>
+          <div class="stat-mini-val" id="st-ok">—</div>
+        </div>
+
+        <div class="stat-mini cor-pend" onclick="aplicarFiltroRapido('pendente')" title="Filtrar pendentes">
+          <div>
+            <div class="stat-mini-label">Pendentes (0 pts)</div>
+            <div class="stat-mini-sub" id="st-pend-sub"></div>
+          </div>
+          <div class="stat-mini-val" id="st-pend">—</div>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="sidebar-section" id="sidebar-filtros" style="display:none">
+        <div class="sidebar-label">Filtros</div>
+
+        <div class="filtro-group">
+          <label>Situação</label>
+          <select id="fil-situacao" onchange="filtrar()">
+            <option value="">Todos</option>
+            <option value="completo">✅ Completo (100 pts)</option>
+            <option value="parcial">🔶 Parcial</option>
+            <option value="pendente">❌ Pendente (0 pts)</option>
+            <option value="sem">⚠️ Cidadão não vinculado à ESF</option>
+          </select>
+        </div>
+
+        <div class="filtro-group">
+          <label>Critério pendente</label>
+          <select id="fil-criterio" onchange="filtrar()">
+            <option value="">Qualquer critério</option>
+          </select>
+        </div>
+
+        <div class="filtro-group">
+          <label>Microárea</label>
+          <select id="fil-microarea" onchange="filtrar()">
+            <option value="">Todas as microáreas</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Legenda critérios — preenchida dinamicamente -->
+      <div class="sidebar-section">
+        <div class="sidebar-label" id="legenda-titulo">Critérios C6</div>
+        <div id="legenda-criterios" style="display:flex;flex-direction:column;gap:6px"></div>
+      </div>
+
+    </div><!-- /sidebar -->
+
+    <!-- Área principal -->
+    <div class="mod-main">
+
+      <!-- Cabeçalho de impressão (só aparece no PDF) -->
+      <div class="print-header" id="print-header">
+        <h2 id="print-titulo">C6 — Cuidado da Pessoa Idosa · Lista Nominal</h2>
+        <p id="print-subtitulo"></p>
+        <div class="print-stats" id="print-stats"></div>
+      </div>
+
+      <!-- Toolbar da tabela -->
+      <div class="table-toolbar" id="table-toolbar">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#9CA3AF" stroke-width="1.5"/><path d="M10 10l2.5 2.5" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <input type="text" id="busca" placeholder="Buscar por nome ou CPF..." oninput="filtrar()">
+        </div>
+        <span class="count-label" id="count-label"></span>
+      </div>
+
+      <!-- Alerta sem cadastro -->
+      <div id="alert-area"></div>
+
+      <!-- Tabela / estado vazio -->
+      <div id="table-container" style="flex:1;display:flex;flex-direction:column;overflow:auto">
+        <div class="empty-state">
+          <div class="icon">📋</div>
+          <h3>Nenhum dado carregado</h3>
+          <p>Faça o upload do SIAPS e dos Cidadãos Vinculados na barra lateral e clique em "Cruzar dados".</p>
+        </div>
+      </div>
+
+    </div><!-- /mod-main -->
+  </div><!-- /mod-body -->
+</div><!-- /tela-modulo -->
+
+<script src="js/app.js"></script>
+</body>
+</html>
