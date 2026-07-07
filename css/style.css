@@ -238,11 +238,6 @@ body {
   transition: opacity .15s;
 }
 .btn-acessar:hover { opacity: .88; }
-.modulo-card .modulo-icon {
-  font-size: 32px;
-  margin-bottom: 14px;
-  display: block;
-}
 
 .home-footer {
   padding: 20px 40px;
@@ -286,10 +281,6 @@ body {
 .topbar-title {
   font-size: 14px; font-weight: 600; color: #fff;
   display: flex; align-items: center; gap: 8px;
-}
-.topbar-badge {
-  font-size: 11px; background: rgba(96,165,250,.2);
-  color: #93C5FD; padding: 2px 8px; border-radius: 4px; font-weight: 700;
 }
 .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
 .btn-top {

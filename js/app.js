@@ -13,7 +13,6 @@ function configurarModulo(id) {
   const cfg = MODULOS[id];
   // Topbar
   document.getElementById('mod-titulo').textContent = cfg.titulo;
-  document.getElementById('mod-icone').textContent  = cfg.icone;
   // Legenda
   document.getElementById('legenda-criterios').innerHTML = cfg.criterios.map(c =>
     `<div style="display:flex;align-items:flex-start;gap:8px">
@@ -85,7 +84,6 @@ function imprimirPDF() {
 const MODULOS = {
   c6: {
     titulo: 'C6 — Cuidado da Pessoa Idosa',
-    icone:  '👴',
     criterios: [
       { k: 'A', desc: 'Consulta médica ou de enfermagem', pts: 25 },
       { k: 'B', desc: 'Peso e altura (antropometria)', pts: 25 },
@@ -95,7 +93,6 @@ const MODULOS = {
   },
   c2: {
     titulo: 'C2 — Cuidado no Desenvolvimento Infantil',
-    icone:  '👶',
     criterios: [
       { k: 'A', desc: 'Consulta médica ou de enfermagem', pts: 20 },
       { k: 'B', desc: '9 consultas médicas/enf. até os 2 anos de vida', pts: 20 },
@@ -106,7 +103,6 @@ const MODULOS = {
   },
   c5: {
     titulo: 'C5 — Controle da Hipertensão Arterial',
-    icone:  '❤️',
     criterios: [
       { k: 'A', desc: 'Consulta presencial ou remota por médica(o) ou enfermeira(o), nos últimos 6 meses', pts: 25 },
       { k: 'B', desc: 'Aferição de pressão arterial registrada nos últimos 6 meses', pts: 25 },
@@ -116,7 +112,6 @@ const MODULOS = {
   },
   c4: {
     titulo: 'C4 — Controle da Diabetes Mellitus',
-    icone:  '🩸',
     criterios: [
       { k: 'A', desc: 'Consulta presencial ou remota por médica(o) ou enfermeira(o), nos últimos 6 meses', pts: 20 },
       { k: 'B', desc: 'Aferição de pressão arterial registrada nos últimos 6 meses', pts: 15 },
