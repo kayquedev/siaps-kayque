@@ -13,9 +13,9 @@
 <body>
 
 <!-- ══════════════════════════════════════════
-     TELA INICIAL
+     TELA DE LOGIN
 ══════════════════════════════════════════ -->
-<div id="tela-inicial">
+<div id="tela-login">
 
   <div class="home-header">
     <div class="home-logo">
@@ -28,6 +28,53 @@
       <h1>SIAPS · Monitor de Indicadores</h1>
       <p>Sistema de Informação para a Atenção Primária à Saúde — SUS</p>
     </div>
+  </div>
+
+  <div class="login-hero">
+    <form class="login-card" onsubmit="tentarLogin(event)" autocomplete="off">
+      <div class="login-eyebrow"><span>●</span> Acesso restrito</div>
+      <h2>Entrar no sistema</h2>
+      <p>Informe seu usuário e senha para acessar o monitor de indicadores.</p>
+
+      <div class="login-field">
+        <label for="login-usuario">Usuário</label>
+        <input type="text" id="login-usuario" autocomplete="username" placeholder="CPF" required>
+      </div>
+      <div class="login-field">
+        <label for="login-senha">Senha</label>
+        <input type="password" id="login-senha" autocomplete="current-password" placeholder="••••••••" required>
+      </div>
+
+      <div class="login-erro" id="login-erro"></div>
+
+      <button type="submit" class="login-btn">Entrar</button>
+    </form>
+  </div>
+
+  <div class="home-footer">
+    <p>e-SUS PEC · Ministério da Saúde · Atenção Primária à Saúde</p>
+    <p>Processamento local — nenhum dado é enviado para servidores externos</p>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+     TELA INICIAL
+══════════════════════════════════════════ -->
+<div id="tela-inicial" style="display:none">
+
+  <div class="home-header">
+    <div class="home-logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M12 3v18M3 12h18" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="4" fill="none" stroke="#60A5FA" stroke-width="1.8"/>
+      </svg>
+    </div>
+    <div class="home-header-text">
+      <h1>SIAPS · Monitor de Indicadores</h1>
+      <p>Sistema de Informação para a Atenção Primária à Saúde — SUS</p>
+    </div>
+    <button class="btn-sair" onclick="sair()">Sair</button>
   </div>
 
   <div class="home-hero">

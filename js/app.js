@@ -1,4 +1,43 @@
 // ─────────────────────────────────────────────
+//  AUTENTICAÇÃO
+// ─────────────────────────────────────────────
+const CREDENCIAIS = { usuario: '13368602608', senha: 'Kagente25' };
+
+function tentarLogin(ev) {
+  ev.preventDefault();
+  const usuario = document.getElementById('login-usuario').value.trim();
+  const senha   = document.getElementById('login-senha').value;
+  const erro    = document.getElementById('login-erro');
+
+  if (usuario === CREDENCIAIS.usuario && senha === CREDENCIAIS.senha) {
+    sessionStorage.setItem('siaps_auth', '1');
+    erro.textContent = '';
+    document.getElementById('tela-login').style.display   = 'none';
+    document.getElementById('tela-inicial').style.display = 'flex';
+  } else {
+    erro.textContent = 'Usuário ou senha incorretos.';
+    document.getElementById('login-senha').value = '';
+  }
+}
+
+function sair() {
+  sessionStorage.removeItem('siaps_auth');
+  document.getElementById('tela-modulo').style.display   = 'none';
+  document.getElementById('tela-inicial').style.display  = 'none';
+  document.getElementById('login-usuario').value    = '';
+  document.getElementById('login-senha').value      = '';
+  document.getElementById('login-erro').textContent = '';
+  document.getElementById('tela-login').style.display = 'flex';
+}
+
+function initAuth() {
+  if (sessionStorage.getItem('siaps_auth') === '1') {
+    document.getElementById('tela-login').style.display   = 'none';
+    document.getElementById('tela-inicial').style.display = 'flex';
+  }
+}
+
+// ─────────────────────────────────────────────
 //  NAVEGAÇÃO ENTRE TELAS
 // ─────────────────────────────────────────────
 function abrirModulo(id) {
@@ -487,7 +526,7 @@ function renderTable() {
     <th class="sortable" onclick="setSort('nome')" style="min-width:320px;width:35%">Nome${arr('nome')}</th>
     <th class="sortable" onclick="setSort('cpf_orig')" style="min-width:90px;max-width:110px">CPF${arr('cpf_orig')}</th>
     <th class="sortable" onclick="setSort('microarea')">Microárea${arr('microarea')}</th>
-    <th>Telefone</th>
+    <th class="col-telefone">Telefone</th>
     <th class="sortable" onclick="setSort('nascimento')">Nascimento${arr('nascimento')}</th>
     <th class="sortable" onclick="setSort('idade')" style="min-width:70px">Idade${arr('idade')}</th>
     <th class="sortable" onclick="setSort('pontos')" style="min-width:100px">Pontuação${arr('pontos')}</th>
@@ -521,7 +560,7 @@ function renderTable() {
       <td class="nome-cell">${nomeCel}</td>
       <td class="mono">${r.cpf_orig}</td>
       <td class="center">${r.microarea || '—'}</td>
-      <td>${r.telefone || '—'}</td>
+      <td class="col-telefone">${r.telefone || '—'}</td>
       <td>${r.nascimento || '—'}</td>
       <td class="center">${r.idade ?? '—'}</td>
       <td>${scoreHtml}</td>
@@ -613,3 +652,8 @@ function limpar() {
      </div>`;
   sortCol = null; sortAsc = true; page = 0;
 }
+
+// ─────────────────────────────────────────────
+//  BOOT
+// ─────────────────────────────────────────────
+initAuth();
