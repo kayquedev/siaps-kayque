@@ -12,8 +12,9 @@ function tentarLogin(ev) {
   if (usuario === CREDENCIAIS.usuario && senha === CREDENCIAIS.senha) {
     sessionStorage.setItem('siaps_auth', '1');
     erro.textContent = '';
-    document.getElementById('tela-login').style.display   = 'none';
-    document.getElementById('tela-inicial').style.display = 'flex';
+    document.getElementById('login-usuario').value = '';
+    document.getElementById('login-senha').value   = '';
+    irParaUpload();
   } else {
     erro.textContent = 'Usuário ou senha incorretos.';
     document.getElementById('login-senha').value = '';
@@ -22,8 +23,10 @@ function tentarLogin(ev) {
 
 function sair() {
   sessionStorage.removeItem('siaps_auth');
+  limparEstadoGlobal();
   document.getElementById('tela-modulo').style.display   = 'none';
   document.getElementById('tela-inicial').style.display  = 'none';
+  document.getElementById('tela-upload').style.display   = 'none';
   document.getElementById('login-usuario').value    = '';
   document.getElementById('login-senha').value      = '';
   document.getElementById('login-erro').textContent = '';
@@ -31,18 +34,24 @@ function sair() {
 }
 
 function initAuth() {
-  if (sessionStorage.getItem('siaps_auth') === '1') {
-    document.getElementById('tela-login').style.display   = 'none';
-    document.getElementById('tela-inicial').style.display = 'flex';
-  }
+  if (sessionStorage.getItem('siaps_auth') === '1') irParaUpload();
 }
 
 // ─────────────────────────────────────────────
 //  NAVEGAÇÃO ENTRE TELAS
 // ─────────────────────────────────────────────
+function irParaUpload() {
+  document.getElementById('tela-login').style.display   = 'none';
+  document.getElementById('tela-inicial').style.display = 'none';
+  document.getElementById('tela-modulo').style.display  = 'none';
+  document.getElementById('tela-upload').style.display  = 'flex';
+  montarTelaUpload();
+}
+
 function abrirModulo(id) {
-  if (!MODULOS[id]) return;
+  if (!MODULOS[id] || !resultadosPorModulo[id]) return;
   moduloAtivo = id;
+  merged = resultadosPorModulo[id];
   document.getElementById('tela-inicial').style.display = 'none';
   document.getElementById('tela-modulo').style.display  = 'flex';
   configurarModulo(id);
@@ -50,9 +59,9 @@ function abrirModulo(id) {
 
 function configurarModulo(id) {
   const cfg = MODULOS[id];
-  // Topbar
+
   document.getElementById('mod-titulo').textContent = cfg.titulo;
-  // Legenda
+
   document.getElementById('legenda-criterios').innerHTML = cfg.criterios.map(c =>
     `<div style="display:flex;align-items:flex-start;gap:8px">
       <span style="font-size:11px;font-weight:800;color:var(--azul);min-width:16px">${c.k}</span>
@@ -62,7 +71,7 @@ function configurarModulo(id) {
   `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--cinza-borda);font-size:11px;color:var(--muted)">
     Pontuação máxima: <strong>100 pts</strong> · critérios independentes entre si
    </div>`;
-  // Popular select de critério
+
   const selCrit = document.getElementById('fil-criterio');
   selCrit.innerHTML = '<option value="">Qualquer critério</option>';
   cfg.criterios.forEach(c => {
@@ -71,21 +80,74 @@ function configurarModulo(id) {
     opt.textContent = `${c.k} — ${c.desc.substring(0,35)}`;
     selCrit.appendChild(opt);
   });
-  // Atualizar label da legenda
-  document.getElementById('legenda-titulo').textContent =
-    `Critérios ${moduloAtivo.toUpperCase()}`;
-  limpar();
+
+  document.getElementById('legenda-titulo').textContent = `Critérios ${id.toUpperCase()}`;
+
+  // Fonte dos dados (substitui o antigo upload dentro do módulo — os
+  // arquivos já foram importados na tela anterior)
+  const rows = rawSiapsPorModulo[id] || [];
+  const fonte = document.getElementById('fonte-dados');
+  if (fonte) {
+    fonte.innerHTML =
+      `<div class="fonte-item"><strong>${rows.length}</strong> registros no SIAPS</div>
+       <div class="fonte-item"><strong>${Object.keys(rawVinc || {}).length}</strong> cadastros vinculados</div>`;
+  }
+
+  // Preencher microáreas
+  const areas = [...new Set(merged.map(r => r.microarea).filter(Boolean))].sort();
+  const sel = document.getElementById('fil-microarea');
+  sel.innerHTML = '<option value="">Todas as microáreas</option>';
+  areas.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = 'Microárea ' + a;
+    sel.appendChild(opt);
+  });
+
+  atualizarStats();
+
+  document.getElementById('sidebar-stats').style.display   = '';
+  document.getElementById('sidebar-filtros').style.display = '';
+  document.getElementById('btn-exportar').disabled = false;
+  document.getElementById('btn-imprimir').disabled = false;
+
+  const sem = merged.filter(r => r.sem_cadastro).length;
+  const alertArea = document.getElementById('alert-area');
+  alertArea.innerHTML = sem > 0
+    ? `<div class="alert-bar warn" onclick="aplicarFiltroRapido('sem')">
+        ⚠️ <strong>${sem} cidadão(s)</strong> não vinculados à ESF no PEC local — clique para filtrar.
+       </div>`
+    : '';
+
+  document.getElementById('busca').value        = '';
+  document.getElementById('fil-situacao').value = '';
+  document.getElementById('fil-criterio').value = '';
+  sortCol = null; sortAsc = true; page = 0;
+
+  filtrar();
 }
+
 function voltarInicio() {
   document.getElementById('tela-modulo').style.display  = 'none';
   document.getElementById('tela-inicial').style.display = 'flex';
+}
+
+function reimportar() {
+  limparEstadoGlobal();
+  irParaUpload();
+}
+
+function limparEstadoGlobal() {
+  rawVinc = null;
+  rawSiapsPorModulo = {};
+  resultadosPorModulo = {};
+  merged = []; filtered = [];
+  moduloAtivo = null;
 }
 
 // ─────────────────────────────────────────────
 //  IMPRESSÃO PDF
 // ─────────────────────────────────────────────
 function imprimirPDF() {
-  // Atualizar cabeçalho de impressão
   const total    = merged.length;
   const completo = merged.filter(r => r.pontos === 100).length;
   const pend     = merged.filter(r => r.pontos === 0).length;
@@ -104,9 +166,7 @@ function imprimirPDF() {
     `<span>Completos: <strong>${completo} (${pct(completo,total)}%)</strong></span>` +
     `<span>Pendentes: <strong>${pend} (${pct(pend,total)}%)</strong></span>`;
 
-  // Temporariamente mostrar TODOS os registros filtrados para impressão
   const savedPage = page;
-  const savedPageSize = PAGE_SIZE;
   window._printAll = true;
   renderTable();
   setTimeout(() => {
@@ -118,26 +178,34 @@ function imprimirPDF() {
 }
 
 // ─────────────────────────────────────────────
-//  CONFIGURAÇÃO DOS MÓDULOS
+//  CONFIGURAÇÃO DOS MÓDULOS (indicadores com
+//  cálculo real, a partir das listas nominais do SIAPS)
 // ─────────────────────────────────────────────
 const MODULOS = {
-  c6: {
-    titulo: 'C6 — Cuidado da Pessoa Idosa',
-    criterios: [
-      { k: 'A', desc: 'Consulta médica ou de enfermagem', pts: 25 },
-      { k: 'B', desc: 'Peso e altura (antropometria)', pts: 25 },
-      { k: 'C', desc: 'Visita ACS/TACS (intervalo ≥30 dias)', pts: 25 },
-      { k: 'D', desc: 'Vacina influenza (campanha vigente)', pts: 25 },
-    ],
-  },
   c2: {
     titulo: 'C2 — Cuidado no Desenvolvimento Infantil',
     criterios: [
-      { k: 'A', desc: 'Consulta médica ou de enfermagem', pts: 20 },
+      { k: 'A', desc: '1ª consulta médica/enf. até 30 dias de vida', pts: 20 },
       { k: 'B', desc: '9 consultas médicas/enf. até os 2 anos de vida', pts: 20 },
       { k: 'C', desc: '9 registros de peso+altura até os 2 anos de vida', pts: 20 },
-      { k: 'D', desc: '2 visitas de ACS/TACS', pts: 20 },
+      { k: 'D', desc: '2 visitas de ACS/TACS (30 dias e 6 meses)', pts: 20 },
       { k: 'E', desc: 'Vacinas em dia', pts: 20 },
+    ],
+  },
+  c3: {
+    titulo: 'C3 — Cuidado na Gestação e Puerpério',
+    criterios: [
+      { k: 'A', desc: '1ª consulta até a 12ª semana de gestação', pts: 10 },
+      { k: 'B', desc: '≥7 consultas médico/enfermeiro na gestação', pts: 9 },
+      { k: 'C', desc: '≥7 aferições de pressão arterial na gestação', pts: 9 },
+      { k: 'D', desc: '≥7 registros de peso+altura na gestação', pts: 9 },
+      { k: 'E', desc: '≥3 visitas de ACS/TACS após a 1ª consulta', pts: 9 },
+      { k: 'F', desc: 'Vacina dTpa a partir da 20ª semana', pts: 9 },
+      { k: 'G', desc: 'HIV, Sífilis, Hepatite B e C no 1º trimestre', pts: 9 },
+      { k: 'H', desc: 'HIV e Sífilis no 3º trimestre', pts: 9 },
+      { k: 'I', desc: 'Consulta no puerpério', pts: 9 },
+      { k: 'J', desc: 'Visita de ACS/TACS no puerpério', pts: 9 },
+      { k: 'K', desc: 'Atividade de saúde bucal na gestação', pts: 9 },
     ],
   },
   c5: {
@@ -160,17 +228,40 @@ const MODULOS = {
       { k: 'F', desc: 'Avaliação dos pés realizada nos últimos 12 meses', pts: 15 },
     ],
   },
+  c6: {
+    titulo: 'C6 — Cuidado da Pessoa Idosa',
+    criterios: [
+      { k: 'A', desc: 'Consulta médica ou de enfermagem', pts: 25 },
+      { k: 'B', desc: 'Peso e altura (antropometria)', pts: 25 },
+      { k: 'C', desc: 'Visita ACS/TACS (intervalo ≥30 dias)', pts: 25 },
+      { k: 'D', desc: 'Vacina influenza (campanha vigente)', pts: 25 },
+    ],
+  },
+  c7: {
+    titulo: 'C7 — Cuidado da Mulher na Prevenção do Câncer',
+    criterios: [
+      { k: 'A', desc: 'Rastreamento de câncer do colo do útero (25–64 anos), a cada 36 meses', pts: 20, nmCol: 'NM.A', dnCol: 'DN.A' },
+      { k: 'B', desc: 'Vacina HPV (9–14 anos, sexo feminino)', pts: 30, nmCol: 'NM.B', dnCol: 'DN.B' },
+      { k: 'C', desc: 'Atenção à saúde sexual e reprodutiva (14–69 anos)', pts: 30, nmCol: 'NM.C', dnCol: 'DN.C' },
+      { k: 'D', desc: 'Rastreamento de câncer de mama (50–69 anos), a cada 24 meses', pts: 20, nmCol: 'NM.D', dnCol: 'DN.D' },
+    ],
+  },
+  cvat: {
+    titulo: 'CVAT — Vínculo e Acompanhamento Territorial',
+    criterios: [
+      { k: 'A', desc: 'Cadastro atualizado — FCI + ficha de domicílio (3 pts) ou só FCI (1,5 pt), em 24 meses', pts: 30 },
+      { k: 'B', desc: '≥2 contatos em 12 meses (atendimento, atividade coletiva ou visita domiciliar)', pts: 70 },
+    ],
+  },
 };
 // colsCrit é derivado automaticamente da lista de critérios de cada módulo
 Object.values(MODULOS).forEach(cfg => { cfg.colsCrit = cfg.criterios.map(c => c.k); });
 
 // ─────────────────────────────────────────────
 //  DASHBOARD GERAL MUNICIPAL
-//  Valores ilustrativos (dados de exemplo) — os
-//  indicadores C2, C4, C5 e C6 já têm ferramenta
-//  funcional (cruzamento real via upload); os
-//  demais serão integrados a partir das planilhas
-//  do SIAPS.
+//  C1, M1, M2 e B1-B6 ainda não têm fonte de dados
+//  integrada (dependem de SISAB ou e-SUS) e seguem
+//  com valores ilustrativos.
 // ─────────────────────────────────────────────
 const INDICADORES_MUNICIPAIS = [
   { grupo: 'ESF / eAP', codigo: 'C1', nome: 'Mais Acesso à APS', tipo: 'percentual', valor: 62,
@@ -178,7 +269,7 @@ const INDICADORES_MUNICIPAIS = [
   { grupo: 'ESF / eAP', codigo: 'C2', nome: 'Desenvolvimento Infantil', tipo: 'score', valor: 74,
     desc: '0–24 meses · 5 boas práticas (20 pts cada)', moduloId: 'c2' },
   { grupo: 'ESF / eAP', codigo: 'C3', nome: 'Gestação e Puerpério', tipo: 'score', valor: 58,
-    desc: 'Pré-natal e puerpério · 11 boas práticas', moduloId: null },
+    desc: 'Pré-natal e puerpério · 11 boas práticas', moduloId: 'c3' },
   { grupo: 'ESF / eAP', codigo: 'C4', nome: 'Diabetes', tipo: 'score', valor: 71,
     desc: '6 boas práticas · pontuação variável por critério', moduloId: 'c4' },
   { grupo: 'ESF / eAP', codigo: 'C5', nome: 'Hipertensão', tipo: 'score', valor: 69,
@@ -186,7 +277,7 @@ const INDICADORES_MUNICIPAIS = [
   { grupo: 'ESF / eAP', codigo: 'C6', nome: 'Cuidado da Pessoa Idosa', tipo: 'score', valor: 81,
     desc: '≥60 anos · 4 boas práticas · 25 pts cada', moduloId: 'c6' },
   { grupo: 'ESF / eAP', codigo: 'C7', nome: 'Cuidado da Mulher', tipo: 'score', valor: 55,
-    desc: 'Colo do útero, HPV, saúde sexual e mamografia por faixa etária', moduloId: null },
+    desc: 'Colo do útero, HPV, saúde sexual e mamografia por faixa etária', moduloId: 'c7' },
 
   { grupo: 'eMulti', codigo: 'M1', nome: 'Média de Atendimentos pela eMulti', tipo: 'media', valor: 3.4,
     desc: 'Atendimentos + atividades coletivas por pessoa (janela de 4 meses)', moduloId: null },
@@ -222,23 +313,53 @@ function classificarIndic(tipo, valor) {
   return 'atencao';
 }
 
+function mediaPontos(id) {
+  const dados = resultadosPorModulo[id];
+  if (!dados || !dados.length) return null;
+  const soma = dados.reduce((s, r) => s + r.pontos, 0);
+  return Math.round(soma / dados.length);
+}
+
 function renderDashboard() {
   const alvo = document.getElementById('dashboard-municipal');
   if (!alvo) return;
 
-  // KPIs gerais (ilustrativos)
+  INDICADORES_MUNICIPAIS.forEach(ind => {
+    ind._real = false;
+    if (ind.moduloId) {
+      const media = mediaPontos(ind.moduloId);
+      if (media !== null) { ind._real = true; ind._valorReal = media; }
+    }
+  });
+
+  const dadosCvat   = resultadosPorModulo.cvat;
+  const cvatReal    = !!(dadosCvat && dadosCvat.length);
+  const temDadoReal = INDICADORES_MUNICIPAIS.some(i => i._real) || cvatReal;
+
   const comScore = INDICADORES_MUNICIPAIS.filter(i => i.tipo !== 'media');
-  const media = Math.round(comScore.reduce((s, i) => s + i.valor, 0) / comScore.length);
+  const mediaGeral = Math.round(
+    comScore.reduce((s, i) => s + (i._real ? i._valorReal : i.valor), 0) / comScore.length
+  );
+
+  let populacaoValor = '34.5<span class="unit">mil</span>';
+  let populacaoSub   = 'cadastros ativos no território (estimativa)';
+  if (temDadoReal) {
+    const cpfsUnicos = new Set();
+    Object.values(resultadosPorModulo).forEach(lista => lista.forEach(r => { if (r.cpf_norm) cpfsUnicos.add(r.cpf_norm); }));
+    populacaoValor = `${cpfsUnicos.size}`;
+    populacaoSub   = 'pessoas únicas nos indicadores importados';
+  }
+
   const competencia = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   let html = `
     <div class="dash-disclaimer">
-      ⚠️ <span><strong>Valores ilustrativos.</strong> C2, C4, C5 e C6 já possuem ferramenta funcional com dados reais via upload — clique no card para acessar. Os demais indicadores serão integrados a partir das planilhas do SIAPS.</span>
+      ⚠️ <span><strong>${temDadoReal ? 'Dados reais das planilhas importadas.' : 'Valores ilustrativos.'}</strong> C2, C3, C4, C5, C6, C7 e CVAT são calculados a partir das listas nominais do SIAPS — clique no card para ver a lista nominal. C1, M1, M2 e B1-B6 ainda dependem de outra fonte (SISAB ou e-SUS) e seguem ilustrativos.</span>
     </div>
     <div class="dash-kpis">
       <div class="kpi-tile">
         <div class="kpi-label">Média geral dos indicadores</div>
-        <div class="kpi-value">${media}<span class="unit">%</span></div>
+        <div class="kpi-value">${mediaGeral}<span class="unit">%</span></div>
         <div class="kpi-sub">15 indicadores acompanhados</div>
       </div>
       <div class="kpi-tile">
@@ -247,9 +368,9 @@ function renderDashboard() {
         <div class="kpi-sub">12 ESF/eAP · 4 eSB · 3 eMulti</div>
       </div>
       <div class="kpi-tile">
-        <div class="kpi-label">População coberta (estimada)</div>
-        <div class="kpi-value">34.5<span class="unit">mil</span></div>
-        <div class="kpi-sub">cadastros ativos no território</div>
+        <div class="kpi-label">População coberta</div>
+        <div class="kpi-value">${populacaoValor}</div>
+        <div class="kpi-sub">${populacaoSub}</div>
       </div>
       <div class="kpi-tile">
         <div class="kpi-label">Competência de referência</div>
@@ -257,7 +378,6 @@ function renderDashboard() {
       </div>
     </div>`;
 
-  // Agrupar indicadores mantendo a ordem de inserção
   const grupos = new Map();
   INDICADORES_MUNICIPAIS.forEach(ind => {
     if (!grupos.has(ind.grupo)) grupos.set(ind.grupo, []);
@@ -273,47 +393,70 @@ function renderDashboard() {
       <div class="indic-grid">`;
 
     itens.forEach(ind => {
-      const cls = classificarIndic(ind.tipo, ind.valor);
+      const valorExibido = ind._real ? ind._valorReal : ind.valor;
+      const cls = classificarIndic(ind.tipo, valorExibido);
       const unidade = ind.tipo === 'percentual' ? '%' : ind.tipo === 'score' ? ' pts' : '';
-      const pctBarra = ind.tipo === 'media' ? Math.min(100, ind.valor / 5 * 100) : ind.valor;
-      const clicavel = !!ind.moduloId;
-      const onclick = clicavel ? ` onclick="abrirModulo('${ind.moduloId}')"` : '';
+      const pctBarra = ind.tipo === 'media' ? Math.min(100, valorExibido / 5 * 100) : valorExibido;
+
+      let tagClasse = 'breve', tagTexto = 'Em breve', clicavel = false, onclick = '', rodape = '';
+      if (ind._real) {
+        tagClasse = 'ativo'; tagTexto = 'Dado real'; clicavel = true;
+        onclick = ` onclick="abrirModulo('${ind.moduloId}')"`;
+        rodape = `<div class="indic-link">Acessar lista nominal →</div>`;
+      } else if (ind.moduloId) {
+        tagClasse = 'pendente'; tagTexto = 'Não importado'; clicavel = true;
+        onclick = ` onclick="irParaUpload()"`;
+        rodape = `<div class="indic-link">Importar planilha →</div>`;
+      }
 
       html += `<div class="indic-card${clicavel ? ' clickable' : ''}"${onclick} title="${ind.desc}">
         <div class="indic-card-top">
           <span class="indic-code">${ind.codigo}</span>
-          <span class="indic-tag ${clicavel ? 'ativo' : 'breve'}">${clicavel ? 'Ferramenta ativa' : 'Em breve'}</span>
+          <span class="indic-tag ${tagClasse}">${tagTexto}</span>
         </div>
-        <div class="indic-value ${cls}"><span class="num">${ind.valor}</span><span class="unit">${unidade}</span></div>
+        <div class="indic-value ${cls}"><span class="num">${valorExibido}</span><span class="unit">${unidade}</span></div>
         <div class="indic-name">${ind.nome}</div>
         <div class="indic-desc">${ind.desc}</div>
         <div class="indic-bar"><div class="indic-bar-fill ${cls}" style="width:${pctBarra}%"></div></div>
-        ${clicavel ? `<div class="indic-link">Acessar lista nominal →</div>` : ''}
+        ${rodape}
       </div>`;
     });
 
     html += `</div></div>`;
   });
 
-  // CVAT — card em destaque
+  // CVAT — card em destaque, com escala 0-10
+  let cvatPontuacao = CVAT_EXEMPLO.pontuacao, cvatMax = CVAT_EXEMPLO.max, cvatDims = CVAT_EXEMPLO.dimensoes;
+  if (cvatReal) {
+    const n = dadosCvat.length;
+    const mediaCadastro = dadosCvat.reduce((s, r) => s + r.cadastroPts, 0) / n;
+    const mediaAcompanhamento = dadosCvat.reduce((s, r) => s + r.acompanhamentoPts, 0) / n;
+    cvatPontuacao = Math.round((mediaCadastro + mediaAcompanhamento) * 10) / 10;
+    cvatDims = [
+      { label: 'Cadastro (30%)', pts: Math.round(mediaCadastro * 10) / 10, max: 3 },
+      { label: 'Acompanhamento territorial (70%)', pts: Math.round(mediaAcompanhamento * 10) / 10, max: 7 },
+    ];
+  }
+
   html += `<div class="dash-group">
     <div class="dash-group-header">
       <h3>Vínculo e Acompanhamento Territorial (CVAT)</h3>
-      <span>escore 0–10</span>
+      <span>escore 0–10 · ${cvatReal ? 'dado real' : 'exemplo'}</span>
     </div>
-    <div class="cvat-card" title="Cadastro: FCI e ficha de domicílio atualizadas em 24 meses. Acompanhamento: 2+ contatos em 12 meses.">
+    <div class="cvat-card${cvatReal ? ' clickable' : ''}"${cvatReal ? ` onclick="abrirModulo('cvat')"` : ''} title="Cadastro: FCI e ficha de domicílio atualizadas em 24 meses. Acompanhamento: 2+ contatos em 12 meses.">
       <div class="cvat-score">
-        <div class="num">${CVAT_EXEMPLO.pontuacao}</div>
-        <div class="max">de ${CVAT_EXEMPLO.max}</div>
+        <div class="num">${cvatPontuacao}</div>
+        <div class="max">de ${cvatMax}</div>
       </div>
       <div class="cvat-dims">
-        ${CVAT_EXEMPLO.dimensoes.map(d => `
+        ${cvatDims.map(d => `
           <div class="cvat-dim-row">
             <span class="cvat-dim-label">${d.label}</span>
             <div class="cvat-dim-bar"><div class="cvat-dim-fill" style="width:${d.pts / d.max * 100}%"></div></div>
             <span class="cvat-dim-pts">${d.pts}/${d.max}</span>
           </div>`).join('')}
       </div>
+      ${cvatReal ? `<div class="indic-link" style="flex-basis:100%">Acessar lista nominal →</div>` : ''}
     </div>
   </div>`;
 
@@ -323,10 +466,11 @@ function renderDashboard() {
 // ─────────────────────────────────────────────
 //  ESTADO GLOBAL
 // ─────────────────────────────────────────────
-let moduloAtivo = 'c6';
-let rawSiaps = null;
-let rawVinc  = null;
-let merged   = [];
+let moduloAtivo = null;
+let rawVinc = null;                 // mapa CPF -> cadastro vinculado (compartilhado)
+let rawSiapsPorModulo = {};         // { c2: [...], c4: [...], ... }
+let resultadosPorModulo = {};       // { c2: [merged...], ... } já processado
+let merged   = [];                  // dados do módulo aberto no momento (referência)
 let filtered = [];
 let sortCol  = null;
 let sortAsc  = true;
@@ -369,8 +513,8 @@ function calcIdade(dataStr) {
 // ─────────────────────────────────────────────
 function ev(e, tipo, enter) {
   e.preventDefault();
-  document.getElementById('card-' + (tipo === 'siaps' ? 'siaps' : 'vinc'))
-    .classList.toggle('dragover', enter);
+  const card = document.getElementById('card-' + tipo);
+  if (card) card.classList.toggle('dragover', enter);
 }
 function drop(e, tipo) {
   e.preventDefault();
@@ -385,6 +529,8 @@ function loadFile(e, tipo) {
 
 // ─────────────────────────────────────────────
 //  PARSE DE ARQUIVOS
+//  tipo === 'vinc'  → Cidadãos Vinculados (compartilhado)
+//  tipo === <id do módulo>  → Lista Nominal SIAPS daquele indicador
 // ─────────────────────────────────────────────
 function parseFile(file, tipo) {
   const ext = file.name.split('.').pop().toLowerCase();
@@ -394,8 +540,8 @@ function parseFile(file, tipo) {
       const wb = XLSX.read(ev.target.result, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-      if (tipo === 'siaps') parseSiaps(raw, file.name);
-      else parseVinc_xlsx(raw, file.name);
+      if (tipo === 'vinc') parseVinc_xlsx(raw, file.name);
+      else parseSiaps(raw, file.name, tipo);
     };
     reader.readAsArrayBuffer(file);
   } else {
@@ -413,14 +559,14 @@ function parseFile(file, tipo) {
         }
       }
       const res = Papa.parse(text, { delimiter: sep, quoteChar: '"', skipEmptyLines: false });
-      if (tipo === 'siaps') parseSiaps(res.data, file.name);
-      else parseVinc_csv(res.data, file.name);
+      if (tipo === 'vinc') parseVinc_csv(res.data, file.name);
+      else parseSiaps(res.data, file.name, tipo);
     };
     reader.readAsArrayBuffer(file);
   }
 }
 
-function parseSiaps(rows, nome) {
+function parseSiaps(rows, nome, moduloId) {
   let headerIdx = -1;
   for (let i = 0; i < rows.length; i++) {
     if (rows[i].some(c => String(c).trim() === 'CPF')) { headerIdx = i; break; }
@@ -437,8 +583,8 @@ function parseSiaps(rows, nome) {
     obj['_cpf_norm'] = normCPF(obj['CPF'] || obj['CNS']);
     data.push(obj);
   }
-  rawSiaps = data;
-  setStatus('siaps', `✅ ${data.length} registros`, nome);
+  rawSiapsPorModulo[moduloId] = data;
+  setStatus(moduloId, `✅ ${data.length} registros`, nome);
   checkReady();
 }
 
@@ -446,7 +592,7 @@ function parseVinc_csv(rows, nome) {
   let headerIdx = -1;
   for (let i = 0; i < rows.length; i++) {
     if (!Array.isArray(rows[i]) || rows[i].length < 4) continue;
-    const normalized = rows[i].map(c => String(c).trim().replace(/['"\u00ef\u00bb\u00bf]/g, ''));
+    const normalized = rows[i].map(c => String(c).trim().replace(/['"ï»¿]/g, ''));
     if (normalized.some(c => c === 'CPF/CNS' || c === 'CPF')) { headerIdx = i; break; }
   }
   if (headerIdx < 0) {
@@ -503,76 +649,153 @@ function buildVincMap(arr) {
 }
 
 function setStatus(tipo, msg, nome) {
-  const card = document.getElementById('card-' + (tipo === 'siaps' ? 'siaps' : 'vinc'));
-  document.getElementById('status-' + tipo).textContent = msg;
-  card.classList.add('loaded');
+  const card   = document.getElementById('card-' + tipo);
+  const status = document.getElementById('status-' + tipo);
+  if (status) status.textContent = msg;
+  if (card) card.classList.add('loaded');
 }
 
 function checkReady() {
-  document.getElementById('btn-processar').disabled = !(rawSiaps && rawVinc);
+  const btn = document.getElementById('btn-importar');
+  if (btn) btn.disabled = !(rawVinc && Object.keys(rawSiapsPorModulo).length > 0);
 }
 
 // ─────────────────────────────────────────────
-//  CRUZAMENTO
+//  TELA DE IMPORTAÇÃO
 // ─────────────────────────────────────────────
-function processar() {
-  merged = rawSiaps.map(s => {
-    const v = rawVinc[s['_cpf_norm']] || {};
-    const cfg = MODULOS[moduloAtivo];
-    const crits = {};
-    cfg.criterios.forEach(c => { crits[c.k] = s[c.k] === 'X'; });
-    const score  = Object.values(crits).filter(Boolean).length;
-    const pontos = cfg.criterios.reduce((soma, c) => soma + (crits[c.k] ? c.pts : 0), 0);
-    const situacao = pontos === 100 ? 'completo' : pontos === 0 ? 'pendente' : 'parcial';
-    const nascimento = s['Nascimento'] || v['Data de Nascimento'] || v['Data de nascimento'] || '';
+function montarTelaUpload() {
+  const alvo = document.getElementById('upload-indicadores');
+  if (!alvo) return;
+  alvo.innerHTML = Object.keys(MODULOS).map(id => `
+    <div class="upload-box" id="card-${id}"
+         ondragover="ev(event,'${id}',true)" ondragleave="ev(event,'${id}',false)" ondrop="drop(event,'${id}')">
+      <input type="file" accept=".xlsx,.xls,.csv" onchange="loadFile(event,'${id}')">
+      <h4>${MODULOS[id].titulo}</h4>
+      <p>Lista Nominal Qualidade · SIAPS</p>
+      <div class="status" id="status-${id}"></div>
+    </div>`).join('');
 
-    return {
-      cpf_orig:    s['CPF'] || s['CNS'] || '',
-      cpf_norm:    s['_cpf_norm'],
-      nome:        v['Nome']        || '',
-      microarea:   v['Microárea']   || '',
-      endereco:    v['Endereço']    || '',
-      telefone:    v['Telefone celular'] || v['Telefone residencial'] || '',
-      nascimento,
-      idade:       calcIdade(nascimento),
-      sexo:        s['Sexo']        || '',
-      cnes:        s['CNES']        || '',
-      ine:         s['INE']         || '',
-      ...crits,
-      NM: s['NM'] === 'X',
-      DN: s['DN'] === 'X',
-      score, pontos, situacao,
-      sem_cadastro: !v['Nome'],
-    };
+  const cardVinc = document.getElementById('card-vinc');
+  if (cardVinc) cardVinc.classList.remove('loaded', 'dragover');
+  const statusVinc = document.getElementById('status-vinc');
+  if (statusVinc) statusVinc.textContent = '';
+  const btn = document.getElementById('btn-importar');
+  if (btn) btn.disabled = true;
+}
+
+function importarTudo() {
+  Object.keys(rawSiapsPorModulo).forEach(id => {
+    const cfg  = MODULOS[id];
+    const rows = rawSiapsPorModulo[id];
+    resultadosPorModulo[id] = rows.map(s => {
+      const v = rawVinc[s['_cpf_norm']] || {};
+      return processarLinha(id, cfg, s, v);
+    });
   });
+  document.getElementById('tela-upload').style.display   = 'none';
+  document.getElementById('tela-inicial').style.display  = 'flex';
+  renderDashboard();
+}
 
-  // Preencher microáreas
-  const areas = [...new Set(merged.map(r => r.microarea).filter(Boolean))].sort();
-  const sel = document.getElementById('fil-microarea');
-  sel.innerHTML = '<option value="">Todas as microáreas</option>';
-  areas.forEach(a => {
-    const opt = document.createElement('option');
-    opt.value = a; opt.textContent = 'Microárea ' + a;
-    sel.appendChild(opt);
+// ─────────────────────────────────────────────
+//  CRUZAMENTO — regra padrão (colunas A, B, C... com "X")
+// ─────────────────────────────────────────────
+function processarLinha(moduloId, cfg, s, v) {
+  if (moduloId === 'c7')   return processarLinhaC7(s, v);
+  if (moduloId === 'cvat') return processarLinhaCVAT(s, v);
+  return processarLinhaPadrao(cfg, s, v);
+}
+
+function dadosBase(s, v) {
+  const nascimento = s['Nascimento'] || v['Data de Nascimento'] || v['Data de nascimento'] || '';
+  return {
+    cpf_orig:  s['CPF'] || s['CNS'] || '',
+    cpf_norm:  s['_cpf_norm'],
+    nome:      v['Nome']        || '',
+    microarea: v['Microárea']   || '',
+    endereco:  v['Endereço']    || '',
+    telefone:  v['Telefone celular'] || v['Telefone residencial'] || '',
+    nascimento,
+    idade:     calcIdade(nascimento),
+    sexo:      s['Sexo']        || '',
+    cnes:      s['CNES']        || '',
+    ine:       s['INE']         || '',
+    sem_cadastro: !v['Nome'],
+  };
+}
+
+function processarLinhaPadrao(cfg, s, v) {
+  const crits = {};
+  cfg.criterios.forEach(c => { crits[c.k] = s[c.k] === 'X'; });
+  const score  = Object.values(crits).filter(Boolean).length;
+  const pontos = cfg.criterios.reduce((soma, c) => soma + (crits[c.k] ? c.pts : 0), 0);
+  const situacao = pontos === 100 ? 'completo' : pontos === 0 ? 'pendente' : 'parcial';
+  return {
+    ...dadosBase(s, v),
+    ...crits,
+    NM: s['NM'] === 'X',
+    DN: s['DN'] === 'X',
+    score, pontos, situacao,
+  };
+}
+
+// C7 — cada critério tem numerador/denominador próprios (elegibilidade
+// por faixa etária); a pontuação é normalizada só entre os critérios em
+// que a pessoa é elegível.
+function processarLinhaC7(s, v) {
+  const criterios = MODULOS.c7.criterios;
+  const crits = {};
+  let pontosObtidos = 0, pontosPossiveis = 0;
+  criterios.forEach(c => {
+    const elegivel = s[c.dnCol] === 'X';
+    const atingiu  = s[c.nmCol] === 'X';
+    crits[c.k] = elegivel && atingiu;
+    if (elegivel) {
+      pontosPossiveis += c.pts;
+      if (atingiu) pontosObtidos += c.pts;
+    }
   });
+  const semCriterioElegivel = pontosPossiveis === 0;
+  const pontos = semCriterioElegivel ? 0 : Math.round(pontosObtidos / pontosPossiveis * 100);
+  const score  = Object.values(crits).filter(Boolean).length;
+  const situacao = semCriterioElegivel ? 'pendente' : pontos === 100 ? 'completo' : pontos === 0 ? 'pendente' : 'parcial';
+  return {
+    ...dadosBase(s, v),
+    ...crits,
+    score, pontos, situacao,
+  };
+}
 
-  atualizarStats();
+// CVAT — Cadastro (até 3 pts) + Acompanhamento (até 7 pts), normalizado
+// para a escala de 0-100 usada no resto do sistema.
+function processarLinhaCVAT(s, v) {
+  const cadastroCompleto = s['Cadastro Individual e Cadastro Domiciliar'] === 'X';
+  const cadastroParcial  = s['Cadastro Individual'] === 'X';
+  const cadastroPts = cadastroCompleto ? 3 : (cadastroParcial ? 1.5 : 0);
 
-  document.getElementById('sidebar-stats').style.display  = '';
-  document.getElementById('sidebar-filtros').style.display = '';
-  document.getElementById('btn-exportar').disabled  = false;
-  document.getElementById('btn-imprimir').disabled  = false;
+  const acompanhado =
+    s['Pessoa acompanhada sem critério de vulnerabilidade'] === 'X' ||
+    s['Criança acompanhada'] === 'X' ||
+    s['Pessoa Idosa acompanhada'] === 'X';
+  const acompanhamentoPts = acompanhado ? 7 : 0;
 
-  // Alerta
-  const sem = merged.filter(r => r.sem_cadastro).length;
-  const alertArea = document.getElementById('alert-area');
-  alertArea.innerHTML = sem > 0
-    ? `<div class="alert-bar warn" onclick="aplicarFiltroRapido('sem')">
-        ⚠️ <strong>${sem} cidadão(s)</strong> não vinculados à ESF no PEC local — clique para filtrar.
-       </div>`
-    : '';
+  const scoreCvat = cadastroPts + acompanhamentoPts;
+  const pontos = Math.round(scoreCvat / 10 * 100);
+  const situacao = pontos === 100 ? 'completo' : pontos === 0 ? 'pendente' : 'parcial';
 
-  filtrar();
+  const vulneravel =
+    s['Beneficiário BPC ou PBF'] === 'X' ||
+    s['Criança beneficiária BPC ou PBF'] === 'X' ||
+    s['Pessoa Idosa beneficiária BPC ou PBF'] === 'X';
+
+  return {
+    ...dadosBase(s, v),
+    A: cadastroPts >= 3,
+    B: acompanhado,
+    cadastroPts, acompanhamentoPts, vulneravel,
+    score: (cadastroPts > 0 ? 1 : 0) + (acompanhado ? 1 : 0),
+    pontos, situacao,
+  };
 }
 
 function atualizarStats() {
@@ -601,7 +824,6 @@ function aplicarFiltroRapido(val) {
   document.getElementById('fil-criterio').value = '';
   document.getElementById('fil-microarea').value = '';
   document.getElementById('busca').value = '';
-  // Destacar card ativo
   document.querySelectorAll('.stat-mini').forEach(el => el.classList.remove('active-filter'));
   const map = {'':'cor-total','sem':'cor-sem','completo':'cor-ok','pendente':'cor-pend'};
   if (map[val]) {
@@ -745,6 +967,7 @@ function changePage(dir) { page += dir; renderTable(); }
 //  EXPORTAR EXCEL
 // ─────────────────────────────────────────────
 function exportar() {
+  const cfgE = MODULOS[moduloAtivo];
   const data = filtered.map(r => ({
     'Nome':              r.nome || '(sem cadastro PEC)',
     'CPF/CNS':           r.cpf_orig,
@@ -755,62 +978,34 @@ function exportar() {
     'Telefone':          r.telefone,
     'Endereço':          r.endereco,
     ...Object.fromEntries(
-      MODULOS[moduloAtivo].colsCrit.map(k => {
-        const c = MODULOS[moduloAtivo].criterios.find(c=>c.k===k);
+      cfgE.colsCrit.map(k => {
+        const c = cfgE.criterios.find(c=>c.k===k);
         return [`${k} (${c?.pts||0}pts) – ${(c?.desc||k).substring(0,30)}`, r[k] ? 'X' : ''];
       })
     ),
     'Pontos (0-100)':    r.pontos,
     'Situação':          r.situacao === 'completo' ? 'Completo' : r.situacao === 'parcial' ? 'Parcial' : 'Pendente',
     'Não vinculado à ESF': r.sem_cadastro ? 'Sim' : 'Não',
-    'No denominador':    r.DN ? 'Sim' : 'Não',
     'CNES':              r.cnes,
     'INE':               r.ine,
   }));
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
-  const nomesAba = { c6: 'C6 – Pessoa Idosa', c2: 'C2 – Desenv. Infantil', c5: 'C5 – Hipertensão', c4: 'C4 – Diabetes' };
-  const nomesArq = { c6: 'c6_pessoa_idosa', c2: 'c2_desenvolvimento_infantil', c5: 'c5_hipertensao', c4: 'c4_diabetes' };
+  const nomesAba = {
+    c2: 'C2 – Desenv. Infantil', c3: 'C3 – Gestação e Puerpério', c4: 'C4 – Diabetes',
+    c5: 'C5 – Hipertensão', c6: 'C6 – Pessoa Idosa', c7: 'C7 – Cuidado da Mulher', cvat: 'CVAT',
+  };
+  const nomesArq = {
+    c2: 'c2_desenvolvimento_infantil', c3: 'c3_gestacao_puerperio', c4: 'c4_diabetes',
+    c5: 'c5_hipertensao', c6: 'c6_pessoa_idosa', c7: 'c7_cuidado_mulher', cvat: 'cvat',
+  };
   const nomeAba = nomesAba[moduloAtivo] || moduloAtivo;
   const nomeArq = nomesArq[moduloAtivo] || moduloAtivo;
   XLSX.utils.book_append_sheet(wb, ws, nomeAba);
-  ws['!cols'] = [{wch:32},{wch:18},{wch:12},{wch:12},{wch:8},{wch:8},{wch:18},{wch:40},
-    {wch:14},{wch:18},{wch:16},{wch:14},{wch:14},{wch:12},{wch:16},{wch:14},{wch:10},{wch:12}];
   XLSX.writeFile(wb, `${nomeArq}_${new Date().toISOString().slice(0,10)}.xlsx`);
-}
-
-// ─────────────────────────────────────────────
-//  LIMPAR
-// ─────────────────────────────────────────────
-function limpar() {
-  rawSiaps = rawVinc = null;
-  merged = filtered = [];
-  ['siaps','vinc'].forEach(t => {
-    document.getElementById('status-'+t).textContent = '';
-    document.getElementById('card-'+t).classList.remove('loaded','dragover');
-  });
-  document.getElementById('sidebar-stats').style.display   = 'none';
-  document.getElementById('sidebar-filtros').style.display = 'none';
-  document.getElementById('btn-processar').disabled = true;
-  document.getElementById('btn-exportar').disabled  = true;
-  document.getElementById('btn-imprimir').disabled  = true;
-  document.getElementById('alert-area').innerHTML   = '';
-  document.getElementById('busca').value            = '';
-  document.getElementById('fil-situacao').value     = '';
-  document.getElementById('fil-criterio').value     = '';
-  document.getElementById('fil-microarea').innerHTML = '<option value="">Todas as microáreas</option>';
-  document.getElementById('count-label').textContent = '';
-  document.getElementById('table-container').innerHTML =
-    `<div class="empty-state">
-      <div class="icon">📋</div>
-      <h3>Nenhum dado carregado</h3>
-      <p>Faça o upload do SIAPS e dos Cidadãos Vinculados na barra lateral e clique em "Cruzar dados".</p>
-     </div>`;
-  sortCol = null; sortAsc = true; page = 0;
 }
 
 // ─────────────────────────────────────────────
 //  BOOT
 // ─────────────────────────────────────────────
-renderDashboard();
 initAuth();

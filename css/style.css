@@ -179,6 +179,20 @@ body {
   transition: background .15s, color .15s;
 }
 .btn-sair:hover { background: rgba(255,255,255,.12); color: #fff; }
+.btn-outline-header {
+  margin-left: auto;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.15);
+  color: rgba(255,255,255,.7);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.btn-outline-header:hover { background: rgba(255,255,255,.12); color: #fff; }
+.btn-outline-header + .btn-sair { margin-left: 0; }
 
 .home-hero {
   flex: 1;
@@ -357,8 +371,9 @@ body {
   text-transform: uppercase;
   letter-spacing: .3px;
 }
-.indic-tag.ativo   { background: rgba(52,211,153,.15); color: #34D399; border: 1px solid rgba(52,211,153,.3); }
-.indic-tag.breve   { background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.12); }
+.indic-tag.ativo    { background: rgba(52,211,153,.15); color: #34D399; border: 1px solid rgba(52,211,153,.3); }
+.indic-tag.pendente { background: rgba(251,191,36,.15);  color: #FBBF24; border: 1px solid rgba(251,191,36,.3); }
+.indic-tag.breve    { background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.12); }
 
 .indic-value { display: flex; align-items: baseline; gap: 4px; margin-bottom: 4px; }
 .indic-value .num { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
@@ -415,6 +430,12 @@ body {
 .cvat-dim-bar { flex: 1; height: 6px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; }
 .cvat-dim-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #60A5FA, #34D399); }
 .cvat-dim-pts { font-size: 12px; font-weight: 700; color: #fff; width: 48px; text-align: right; flex-shrink: 0; }
+.cvat-card.clickable { cursor: pointer; transition: transform .15s, background .15s, border-color .15s; }
+.cvat-card.clickable:hover {
+  transform: translateY(-3px);
+  background: rgba(255,255,255,.09);
+  border-color: rgba(96,165,250,.35);
+}
 
 .home-footer {
   padding: 20px 40px;
@@ -426,6 +447,112 @@ body {
   gap: 8px;
 }
 .home-footer p { font-size: 12px; color: rgba(255,255,255,.3); }
+
+/* ══════════════════════════════════════════
+   TELA DE IMPORTAÇÃO
+══════════════════════════════════════════ */
+#tela-upload {
+  min-height: 100vh;
+  background: var(--azul-escuro);
+  display: flex;
+  flex-direction: column;
+}
+.upload-hero {
+  flex: 1;
+  padding: 48px 40px 60px;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+}
+.upload-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 800px 400px at 50% 0%, rgba(21,101,192,.20) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+.upload-hero h2 {
+  font-size: 30px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -.6px;
+  margin-bottom: 10px;
+}
+.upload-hero > p {
+  font-size: 14px;
+  color: rgba(255,255,255,.55);
+  line-height: 1.6;
+  max-width: 640px;
+  margin-bottom: 36px;
+}
+.upload-hero > p strong { color: rgba(255,255,255,.85); }
+
+.upload-section { margin-bottom: 30px; }
+.upload-section-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px;
+  color: rgba(255,255,255,.4);
+  margin-bottom: 12px;
+}
+.upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+.upload-grid-single { grid-template-columns: minmax(210px, 340px); }
+
+.upload-box {
+  border: 1.5px dashed rgba(255,255,255,.18);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+  background: rgba(255,255,255,.03);
+}
+.upload-box:hover, .upload-box.dragover {
+  border-color: #60A5FA;
+  background: rgba(96,165,250,.08);
+}
+.upload-box.loaded {
+  border-style: solid;
+  border-color: #34D399;
+  background: rgba(52,211,153,.08);
+}
+.upload-box input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.upload-box h4 { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+.upload-box p { font-size: 11px; color: rgba(255,255,255,.4); margin-bottom: 0; }
+.upload-box .status { font-size: 11px; font-weight: 600; color: #34D399; margin-top: 6px; word-break: break-all; }
+
+.btn-importar {
+  background: linear-gradient(135deg, #1565C0, #0B4F8A);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 28px;
+  border-radius: 9px;
+  border: none;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.btn-importar:hover:not(:disabled) { opacity: .88; }
+.btn-importar:disabled { opacity: .35; cursor: not-allowed; }
+
+/* Fonte dos dados — sidebar do módulo */
+.fonte-dados { display: flex; flex-direction: column; gap: 8px; }
+.fonte-item {
+  background: var(--cinza-bg);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.fonte-item strong { color: var(--azul); font-size: 13px; }
 
 /* ══════════════════════════════════════════
    TELA DO MÓDULO C6
@@ -510,27 +637,6 @@ body {
   text-transform: uppercase; letter-spacing: .8px;
   color: var(--muted); margin-bottom: 10px;
 }
-
-/* Upload compacto na sidebar */
-.upload-mini {
-  border: 1.5px dashed var(--cinza-borda);
-  border-radius: 8px;
-  padding: 12px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color .2s, background .2s;
-  position: relative;
-  margin-bottom: 8px;
-}
-.upload-mini:hover, .upload-mini.dragover { border-color: var(--azul); background: var(--azul-light); }
-.upload-mini.loaded { border-style: solid; border-color: var(--verde); background: var(--verde-bg); }
-.upload-mini input[type=file] {
-  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
-}
-.upload-mini-icon { font-size: 22px; margin-bottom: 4px; }
-.upload-mini h4 { font-size: 12px; font-weight: 700; color: var(--azul); margin-bottom: 2px; }
-.upload-mini p { font-size: 11px; color: var(--muted); }
-.upload-mini .status { font-size: 11px; font-weight: 600; color: var(--verde); margin-top: 4px; word-break: break-all; }
 
 /* Filtros na sidebar */
 .filtro-group { margin-bottom: 12px; }
@@ -728,6 +834,7 @@ td.nome-cell .sem { color: var(--muted); font-style: italic; font-size: 12px; }
 ══════════════════════════════════════════ */
 @media print {
   #tela-login   { display: none !important; }
+  #tela-upload  { display: none !important; }
   #tela-inicial { display: none !important; }
   #tela-modulo  { display: flex !important; }
   .mod-topbar, .mod-sidebar, .table-toolbar, .pager, .btn-top, .btn-pdf, .alert-bar { display: none !important; }
