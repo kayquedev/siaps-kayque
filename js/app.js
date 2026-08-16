@@ -165,6 +165,162 @@ const MODULOS = {
 Object.values(MODULOS).forEach(cfg => { cfg.colsCrit = cfg.criterios.map(c => c.k); });
 
 // ─────────────────────────────────────────────
+//  DASHBOARD GERAL MUNICIPAL
+//  Valores ilustrativos (dados de exemplo) — os
+//  indicadores C2, C4, C5 e C6 já têm ferramenta
+//  funcional (cruzamento real via upload); os
+//  demais serão integrados a partir das planilhas
+//  do SIAPS.
+// ─────────────────────────────────────────────
+const INDICADORES_MUNICIPAIS = [
+  { grupo: 'ESF / eAP', codigo: 'C1', nome: 'Mais Acesso à APS', tipo: 'percentual', valor: 62,
+    desc: 'Atendimentos agendados vs. demanda espontânea', moduloId: null },
+  { grupo: 'ESF / eAP', codigo: 'C2', nome: 'Desenvolvimento Infantil', tipo: 'score', valor: 74,
+    desc: '0–24 meses · 5 boas práticas (20 pts cada)', moduloId: 'c2' },
+  { grupo: 'ESF / eAP', codigo: 'C3', nome: 'Gestação e Puerpério', tipo: 'score', valor: 58,
+    desc: 'Pré-natal e puerpério · 11 boas práticas', moduloId: null },
+  { grupo: 'ESF / eAP', codigo: 'C4', nome: 'Diabetes', tipo: 'score', valor: 71,
+    desc: '6 boas práticas · pontuação variável por critério', moduloId: 'c4' },
+  { grupo: 'ESF / eAP', codigo: 'C5', nome: 'Hipertensão', tipo: 'score', valor: 69,
+    desc: '4 boas práticas · 25 pts cada', moduloId: 'c5' },
+  { grupo: 'ESF / eAP', codigo: 'C6', nome: 'Cuidado da Pessoa Idosa', tipo: 'score', valor: 81,
+    desc: '≥60 anos · 4 boas práticas · 25 pts cada', moduloId: 'c6' },
+  { grupo: 'ESF / eAP', codigo: 'C7', nome: 'Cuidado da Mulher', tipo: 'score', valor: 55,
+    desc: 'Colo do útero, HPV, saúde sexual e mamografia por faixa etária', moduloId: null },
+
+  { grupo: 'eMulti', codigo: 'M1', nome: 'Média de Atendimentos pela eMulti', tipo: 'media', valor: 3.4,
+    desc: 'Atendimentos + atividades coletivas por pessoa (janela de 4 meses)', moduloId: null },
+  { grupo: 'eMulti', codigo: 'M2', nome: 'Ações Interprofissionais Compartilhadas', tipo: 'percentual', valor: 47,
+    desc: 'Ações com 2+ profissionais ou cuidado compartilhado', moduloId: null },
+
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B1', nome: '1ª Consulta Odontológica Programática', tipo: 'percentual', valor: 38,
+    desc: 'Primeira consulta programática por cirurgião-dentista', moduloId: null },
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B2', nome: 'Tratamento Concluído', tipo: 'percentual', valor: 64,
+    desc: 'Dentro da coorte com 1ª consulta programática', moduloId: null },
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B3', nome: 'Taxa de Exodontia', tipo: 'percentual', valor: 12,
+    desc: 'Exodontias sobre o total de procedimentos odontológicos', moduloId: null },
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B4', nome: 'Escovação Supervisionada', tipo: 'percentual', valor: 29,
+    desc: 'Crianças de 6–12 anos em atividade coletiva', moduloId: null },
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B5', nome: 'Procedimentos Preventivos', tipo: 'percentual', valor: 53,
+    desc: 'Preventivos sobre o total de procedimentos individuais', moduloId: null },
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B6', nome: 'TRA/ART', tipo: 'percentual', valor: 8,
+    desc: 'Tratamento Restaurador Atraumático sobre procedimentos restauradores', moduloId: null },
+];
+
+const CVAT_EXEMPLO = {
+  pontuacao: 6.4, max: 10,
+  dimensoes: [
+    { label: 'Cadastro (30%)', pts: 2.1, max: 3 },
+    { label: 'Acompanhamento territorial (70%)', pts: 4.3, max: 7 },
+  ],
+};
+
+function classificarIndic(tipo, valor) {
+  if (tipo === 'media') return 'neutro';
+  if (valor >= 75) return 'bom';
+  if (valor >= 50) return 'regular';
+  return 'atencao';
+}
+
+function renderDashboard() {
+  const alvo = document.getElementById('dashboard-municipal');
+  if (!alvo) return;
+
+  // KPIs gerais (ilustrativos)
+  const comScore = INDICADORES_MUNICIPAIS.filter(i => i.tipo !== 'media');
+  const media = Math.round(comScore.reduce((s, i) => s + i.valor, 0) / comScore.length);
+  const competencia = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  let html = `
+    <div class="dash-disclaimer">
+      ⚠️ <span><strong>Valores ilustrativos.</strong> C2, C4, C5 e C6 já possuem ferramenta funcional com dados reais via upload — clique no card para acessar. Os demais indicadores serão integrados a partir das planilhas do SIAPS.</span>
+    </div>
+    <div class="dash-kpis">
+      <div class="kpi-tile">
+        <div class="kpi-label">Média geral dos indicadores</div>
+        <div class="kpi-value">${media}<span class="unit">%</span></div>
+        <div class="kpi-sub">15 indicadores acompanhados</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-label">Equipes cadastradas</div>
+        <div class="kpi-value">19</div>
+        <div class="kpi-sub">12 ESF/eAP · 4 eSB · 3 eMulti</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-label">População coberta (estimada)</div>
+        <div class="kpi-value">34.5<span class="unit">mil</span></div>
+        <div class="kpi-sub">cadastros ativos no território</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-label">Competência de referência</div>
+        <div class="kpi-value" style="font-size:18px;text-transform:capitalize">${competencia}</div>
+      </div>
+    </div>`;
+
+  // Agrupar indicadores mantendo a ordem de inserção
+  const grupos = new Map();
+  INDICADORES_MUNICIPAIS.forEach(ind => {
+    if (!grupos.has(ind.grupo)) grupos.set(ind.grupo, []);
+    grupos.get(ind.grupo).push(ind);
+  });
+
+  grupos.forEach((itens, grupo) => {
+    html += `<div class="dash-group">
+      <div class="dash-group-header">
+        <h3>${grupo}</h3>
+        <span>${itens.length} indicador${itens.length > 1 ? 'es' : ''}</span>
+      </div>
+      <div class="indic-grid">`;
+
+    itens.forEach(ind => {
+      const cls = classificarIndic(ind.tipo, ind.valor);
+      const unidade = ind.tipo === 'percentual' ? '%' : ind.tipo === 'score' ? ' pts' : '';
+      const pctBarra = ind.tipo === 'media' ? Math.min(100, ind.valor / 5 * 100) : ind.valor;
+      const clicavel = !!ind.moduloId;
+      const onclick = clicavel ? ` onclick="abrirModulo('${ind.moduloId}')"` : '';
+
+      html += `<div class="indic-card${clicavel ? ' clickable' : ''}"${onclick} title="${ind.desc}">
+        <div class="indic-card-top">
+          <span class="indic-code">${ind.codigo}</span>
+          <span class="indic-tag ${clicavel ? 'ativo' : 'breve'}">${clicavel ? 'Ferramenta ativa' : 'Em breve'}</span>
+        </div>
+        <div class="indic-value ${cls}"><span class="num">${ind.valor}</span><span class="unit">${unidade}</span></div>
+        <div class="indic-name">${ind.nome}</div>
+        <div class="indic-desc">${ind.desc}</div>
+        <div class="indic-bar"><div class="indic-bar-fill ${cls}" style="width:${pctBarra}%"></div></div>
+        ${clicavel ? `<div class="indic-link">Acessar lista nominal →</div>` : ''}
+      </div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  // CVAT — card em destaque
+  html += `<div class="dash-group">
+    <div class="dash-group-header">
+      <h3>Vínculo e Acompanhamento Territorial (CVAT)</h3>
+      <span>escore 0–10</span>
+    </div>
+    <div class="cvat-card" title="Cadastro: FCI e ficha de domicílio atualizadas em 24 meses. Acompanhamento: 2+ contatos em 12 meses.">
+      <div class="cvat-score">
+        <div class="num">${CVAT_EXEMPLO.pontuacao}</div>
+        <div class="max">de ${CVAT_EXEMPLO.max}</div>
+      </div>
+      <div class="cvat-dims">
+        ${CVAT_EXEMPLO.dimensoes.map(d => `
+          <div class="cvat-dim-row">
+            <span class="cvat-dim-label">${d.label}</span>
+            <div class="cvat-dim-bar"><div class="cvat-dim-fill" style="width:${d.pts / d.max * 100}%"></div></div>
+            <span class="cvat-dim-pts">${d.pts}/${d.max}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  alvo.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
 //  ESTADO GLOBAL
 // ─────────────────────────────────────────────
 let moduloAtivo = 'c6';
@@ -656,4 +812,5 @@ function limpar() {
 // ─────────────────────────────────────────────
 //  BOOT
 // ─────────────────────────────────────────────
+renderDashboard();
 initAuth();
