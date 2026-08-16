@@ -149,8 +149,8 @@ function limparEstadoGlobal() {
 // ─────────────────────────────────────────────
 function imprimirPDF() {
   const total    = merged.length;
-  const completo = merged.filter(r => r.pontos === 100).length;
-  const pend     = merged.filter(r => r.pontos === 0).length;
+  const completo = merged.filter(r => r.situacao === 'completo').length;
+  const pend     = merged.filter(r => r.situacao === 'pendente').length;
   const sem      = merged.filter(r => r.sem_cadastro).length;
   const dt = new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'long',year:'numeric'});
 
@@ -729,7 +729,7 @@ function processarLinhaPadrao(cfg, s, v) {
   cfg.criterios.forEach(c => { crits[c.k] = s[c.k] === 'X'; });
   const score  = Object.values(crits).filter(Boolean).length;
   const pontos = cfg.criterios.reduce((soma, c) => soma + (crits[c.k] ? c.pts : 0), 0);
-  const situacao = pontos === 100 ? 'completo' : pontos === 0 ? 'pendente' : 'parcial';
+  const situacao = pontos === 100 ? 'completo' : 'pendente';
   return {
     ...dadosBase(s, v),
     ...crits,
@@ -758,7 +758,7 @@ function processarLinhaC7(s, v) {
   const semCriterioElegivel = pontosPossiveis === 0;
   const pontos = semCriterioElegivel ? 0 : Math.round(pontosObtidos / pontosPossiveis * 100);
   const score  = Object.values(crits).filter(Boolean).length;
-  const situacao = semCriterioElegivel ? 'pendente' : pontos === 100 ? 'completo' : pontos === 0 ? 'pendente' : 'parcial';
+  const situacao = pontos === 100 ? 'completo' : 'pendente';
   return {
     ...dadosBase(s, v),
     ...crits,
@@ -781,7 +781,7 @@ function processarLinhaCVAT(s, v) {
 
   const scoreCvat = cadastroPts + acompanhamentoPts;
   const pontos = Math.round(scoreCvat / 10 * 100);
-  const situacao = pontos === 100 ? 'completo' : pontos === 0 ? 'pendente' : 'parcial';
+  const situacao = pontos === 100 ? 'completo' : 'pendente';
 
   const vulneravel =
     s['Beneficiário BPC ou PBF'] === 'X' ||
@@ -800,8 +800,8 @@ function processarLinhaCVAT(s, v) {
 
 function atualizarStats() {
   const total    = merged.length;
-  const completo = merged.filter(r => r.pontos === 100).length;
-  const pend     = merged.filter(r => r.pontos === 0).length;
+  const completo = merged.filter(r => r.situacao === 'completo').length;
+  const pend     = merged.filter(r => r.situacao === 'pendente').length;
   const sem      = merged.filter(r => r.sem_cadastro).length;
 
   document.getElementById('st-total').textContent    = total;
@@ -841,7 +841,6 @@ function filtrar() {
   filtered = merged.filter(r => {
     if (busca && !r.nome.toLowerCase().includes(busca) && !r.cpf_orig.includes(busca)) return false;
     if (situacao === 'completo' && r.situacao !== 'completo') return false;
-    if (situacao === 'parcial'  && r.situacao !== 'parcial')  return false;
     if (situacao === 'pendente' && r.situacao !== 'pendente') return false;
     if (situacao === 'sem'      && !r.sem_cadastro)           return false;
     if (criterio && r[criterio] !== false) return false;
@@ -931,8 +930,7 @@ function renderTable() {
     let tagHtml;
     if (r.sem_cadastro)               tagHtml = `<span class="tag sem">⚠ Não vinculado</span>`;
     else if (r.situacao==='completo') tagHtml = `<span class="tag ok">✅ Completo</span>`;
-    else if (r.situacao==='parcial')  tagHtml = `<span class="tag parcial">🔶 ${r.pontos} pts</span>`;
-    else                              tagHtml = `<span class="tag pend">❌ Pendente</span>`;
+    else                               tagHtml = `<span class="tag pend">❌ Pendente · ${r.pontos} pts</span>`;
 
     html += `<tr>
       <td class="nome-cell">${nomeCel}</td>
@@ -984,7 +982,7 @@ function exportar() {
       })
     ),
     'Pontos (0-100)':    r.pontos,
-    'Situação':          r.situacao === 'completo' ? 'Completo' : r.situacao === 'parcial' ? 'Parcial' : 'Pendente',
+    'Situação':          r.situacao === 'completo' ? 'Completo' : 'Pendente',
     'Não vinculado à ESF': r.sem_cadastro ? 'Sim' : 'Não',
     'CNES':              r.cnes,
     'INE':               r.ine,

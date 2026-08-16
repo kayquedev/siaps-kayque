@@ -217,7 +217,7 @@
 
         <div class="stat-mini cor-pend" onclick="aplicarFiltroRapido('pendente')" title="Filtrar pendentes">
           <div>
-            <div class="stat-mini-label">Pendentes (0 pts)</div>
+            <div class="stat-mini-label">Pendentes (0 a 99 pts)</div>
             <div class="stat-mini-sub" id="st-pend-sub"></div>
           </div>
           <div class="stat-mini-val" id="st-pend">—</div>
@@ -233,8 +233,7 @@
           <select id="fil-situacao" onchange="filtrar()">
             <option value="">Todos</option>
             <option value="completo">✅ Completo (100 pts)</option>
-            <option value="parcial">🔶 Parcial</option>
-            <option value="pendente">❌ Pendente (0 pts)</option>
+            <option value="pendente">❌ Pendente (0 a 99 pts)</option>
             <option value="sem">⚠️ Cidadão não vinculado à ESF</option>
           </select>
         </div>

@@ -784,7 +784,6 @@ td.nome-cell .sem { color: var(--muted); font-style: italic; font-size: 12px; }
 }
 .tag.ok      { background: var(--verde-bg);    color: var(--verde);    }
 .tag.pend    { background: var(--vermelho-bg);  color: var(--vermelho); }
-.tag.parcial { background: var(--ambar-bg);     color: var(--ambar);    }
 .tag.sem     { background: #FFF7ED;             color: #C2410C;         }
 
 /* Barra de score visual */
