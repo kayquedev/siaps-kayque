@@ -113,38 +113,32 @@
 </div>
 
 <!-- ══════════════════════════════════════════
-     TELA INICIAL
+     TELA INICIAL (Painel de Indicadores)
 ══════════════════════════════════════════ -->
-<div id="tela-inicial" style="display:none">
+<div id="tela-inicial" style="display:none;flex-direction:column">
 
-  <div class="home-header">
-    <div class="home-logo">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M12 3v18M3 12h18" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
-        <circle cx="12" cy="12" r="4" fill="none" stroke="#60A5FA" stroke-width="1.8"/>
-      </svg>
+  <div class="mod-topbar">
+    <div class="topbar-icon">📊</div>
+    <div class="topbar-title">
+      <span>Painel de Indicadores</span>
+      <small>Previne Brasil · ESF/eAP, eMulti e Saúde Bucal</small>
     </div>
-    <div class="home-header-text">
-      <h1>SIAPS · Monitor de Indicadores</h1>
-      <p>Sistema de Informação para a Atenção Primária à Saúde — SUS</p>
+    <div class="topbar-actions">
+      <button class="btn-top btn-outline" onclick="reimportar()">↺ Reimportar</button>
+      <button class="btn-top btn-outline" onclick="sair()">Sair</button>
     </div>
-    <button class="btn-outline-header" onclick="reimportar()">↺ Reimportar</button>
-    <button class="btn-sair" onclick="sair()">Sair</button>
   </div>
 
-  <div class="home-hero">
-    <div class="home-eyebrow">
-      <span>●</span> Atenção Primária à Saúde
+  <div class="mod-body">
+    <div class="mod-sidebar">
+      <div class="sidebar-section" id="sidebar-nav-inicial" style="border-bottom:none"></div>
+      <div class="sidebar-section" style="margin-top:auto">
+        <p style="font-size:11px;color:var(--muted);line-height:1.5">e-SUS PEC · Ministério da Saúde<br>Processamento local — nenhum dado é enviado para servidores externos</p>
+      </div>
     </div>
-    <h2>Análise de dados<br><em>ESUS PEC / SIAPS</em></h2>
-    <p>Painel geral dos indicadores do Previne Brasil por equipe — ESF/eAP, eMulti e Saúde Bucal — com visão nominal por cidadão nos indicadores já integrados.</p>
-
-    <div class="dashboard-municipal" id="dashboard-municipal"></div>
-  </div>
-
-  <div class="home-footer">
-    <p>e-SUS PEC · Ministério da Saúde · Atenção Primária à Saúde</p>
-    <p>Processamento local — nenhum dado é enviado para servidores externos</p>
+    <div class="mod-main" style="overflow:auto">
+      <div class="dashboard-municipal" id="dashboard-municipal"></div>
+    </div>
   </div>
 
 </div>
@@ -161,8 +155,10 @@
       Início
     </button>
     <div class="topbar-sep"></div>
+    <div class="topbar-icon" id="mod-icone">📋</div>
     <div class="topbar-title">
       <span id="mod-titulo">C6 — Cuidado da Pessoa Idosa</span>
+      <small id="mod-subtitulo">Acompanhamento dos indicadores (dados da planilha)</small>
     </div>
     <div class="topbar-actions">
       <button class="btn-top btn-outline" id="btn-exportar" onclick="exportar()" disabled>
@@ -180,6 +176,8 @@
 
     <!-- Sidebar -->
     <div class="mod-sidebar">
+
+      <div class="sidebar-section" id="sidebar-nav-modulo" style="border-bottom:none"></div>
 
       <!-- Fonte dos dados -->
       <div class="sidebar-section">
@@ -224,35 +222,6 @@
         </div>
       </div>
 
-      <!-- Filtros -->
-      <div class="sidebar-section" id="sidebar-filtros" style="display:none">
-        <div class="sidebar-label">Filtros</div>
-
-        <div class="filtro-group">
-          <label>Situação</label>
-          <select id="fil-situacao" onchange="filtrar()">
-            <option value="">Todos</option>
-            <option value="completo">✅ Completo (100 pts)</option>
-            <option value="pendente">❌ Pendente (0 a 99 pts)</option>
-            <option value="sem">⚠️ Cidadão não vinculado à ESF</option>
-          </select>
-        </div>
-
-        <div class="filtro-group">
-          <label>Critério pendente</label>
-          <select id="fil-criterio" onchange="filtrar()">
-            <option value="">Qualquer critério</option>
-          </select>
-        </div>
-
-        <div class="filtro-group">
-          <label>Microárea</label>
-          <select id="fil-microarea" onchange="filtrar()">
-            <option value="">Todas as microáreas</option>
-          </select>
-        </div>
-      </div>
-
       <!-- Legenda critérios — preenchida dinamicamente -->
       <div class="sidebar-section">
         <div class="sidebar-label" id="legenda-titulo">Critérios C6</div>
@@ -277,11 +246,26 @@
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#9CA3AF" stroke-width="1.5"/><path d="M10 10l2.5 2.5" stroke="#9CA3AF" stroke-width="1.5" stroke-linecap="round"/></svg>
           <input type="text" id="busca" placeholder="Buscar por nome ou CPF..." oninput="filtrar()">
         </div>
+        <select class="toolbar-select" id="fil-situacao" onchange="filtrar()">
+          <option value="">Todas as situações</option>
+          <option value="completo">✅ Completo (100 pts)</option>
+          <option value="pendente">❌ Incompleto</option>
+          <option value="sem">⚠️ Não vinculado à ESF</option>
+        </select>
+        <select class="toolbar-select" id="fil-criterio" onchange="filtrar()">
+          <option value="">Qualquer critério</option>
+        </select>
+        <select class="toolbar-select" id="fil-microarea" onchange="filtrar()">
+          <option value="">Todas as microáreas</option>
+        </select>
         <span class="count-label" id="count-label"></span>
       </div>
 
-      <!-- Alerta sem cadastro -->
-      <div id="alert-area"></div>
+      <!-- Abas -->
+      <div class="mod-tabs">
+        <button class="tab-btn active" data-tab="nominal" onclick="setTab('nominal')">Relatório Nominal</button>
+        <button class="tab-btn" data-tab="consolidado" onclick="setTab('consolidado')">Relatório Consolidado</button>
+      </div>
 
       <!-- Tabela / estado vazio -->
       <div id="table-container" style="flex:1;display:flex;flex-direction:column;overflow:auto">
@@ -291,6 +275,9 @@
           <p>Se esta mensagem persistir, volte ao início e reimporte as planilhas.</p>
         </div>
       </div>
+
+      <!-- Relatório consolidado (por microárea) -->
+      <div id="consolidado-container" style="flex:1;display:none;flex-direction:column;overflow:auto"></div>
 
     </div><!-- /mod-main -->
   </div><!-- /mod-body -->

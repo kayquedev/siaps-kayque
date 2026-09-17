@@ -61,6 +61,9 @@ function configurarModulo(id) {
   const cfg = MODULOS[id];
 
   document.getElementById('mod-titulo').textContent = cfg.titulo;
+  document.getElementById('mod-subtitulo').textContent = cfg.subtitulo || '';
+  document.getElementById('mod-icone').textContent = cfg.icone || '📋';
+  atualizarSidebarNav(id);
 
   document.getElementById('legenda-criterios').innerHTML = cfg.criterios.map(c =>
     `<div style="display:flex;align-items:flex-start;gap:8px">
@@ -106,23 +109,15 @@ function configurarModulo(id) {
   atualizarStats();
 
   document.getElementById('sidebar-stats').style.display   = '';
-  document.getElementById('sidebar-filtros').style.display = '';
   document.getElementById('btn-exportar').disabled = false;
   document.getElementById('btn-imprimir').disabled = false;
-
-  const sem = merged.filter(r => r.sem_cadastro).length;
-  const alertArea = document.getElementById('alert-area');
-  alertArea.innerHTML = sem > 0
-    ? `<div class="alert-bar warn" onclick="aplicarFiltroRapido('sem')">
-        ⚠️ <strong>${sem} cidadão(s)</strong> não vinculados à ESF no PEC local — clique para filtrar.
-       </div>`
-    : '';
 
   document.getElementById('busca').value        = '';
   document.getElementById('fil-situacao').value = '';
   document.getElementById('fil-criterio').value = '';
   sortCol = null; sortAsc = true; page = 0;
 
+  setTab('nominal');
   filtrar();
 }
 
@@ -184,6 +179,8 @@ function imprimirPDF() {
 const MODULOS = {
   c2: {
     titulo: 'C2 — Cuidado no Desenvolvimento Infantil',
+    icone: '🧒',
+    subtitulo: 'Acompanhamento dos indicadores por criança (dados da planilha)',
     criterios: [
       { k: 'A', desc: '1ª consulta médica/enf. até 30 dias de vida', pts: 20 },
       { k: 'B', desc: '9 consultas médicas/enf. até os 2 anos de vida', pts: 20 },
@@ -194,6 +191,8 @@ const MODULOS = {
   },
   c3: {
     titulo: 'C3 — Cuidado na Gestação e Puerpério',
+    icone: '🤰',
+    subtitulo: 'Acompanhamento dos indicadores por gestante/puérpera (dados da planilha)',
     criterios: [
       { k: 'A', desc: '1ª consulta até a 12ª semana de gestação', pts: 10 },
       { k: 'B', desc: '≥7 consultas médico/enfermeiro na gestação', pts: 9 },
@@ -210,6 +209,8 @@ const MODULOS = {
   },
   c5: {
     titulo: 'C5 — Controle da Hipertensão Arterial',
+    icone: '❤️',
+    subtitulo: 'Acompanhamento dos indicadores por pessoa com hipertensão (dados da planilha)',
     criterios: [
       { k: 'A', desc: 'Consulta presencial ou remota por médica(o) ou enfermeira(o), nos últimos 6 meses', pts: 25 },
       { k: 'B', desc: 'Aferição de pressão arterial registrada nos últimos 6 meses', pts: 25 },
@@ -219,6 +220,8 @@ const MODULOS = {
   },
   c4: {
     titulo: 'C4 — Controle da Diabetes Mellitus',
+    icone: '🩸',
+    subtitulo: 'Acompanhamento dos indicadores por pessoa com diabetes (dados da planilha)',
     criterios: [
       { k: 'A', desc: 'Consulta presencial ou remota por médica(o) ou enfermeira(o), nos últimos 6 meses', pts: 20 },
       { k: 'B', desc: 'Aferição de pressão arterial registrada nos últimos 6 meses', pts: 15 },
@@ -230,6 +233,8 @@ const MODULOS = {
   },
   c6: {
     titulo: 'C6 — Cuidado da Pessoa Idosa',
+    icone: '👴',
+    subtitulo: 'Acompanhamento dos indicadores por pessoa idosa (dados da planilha)',
     criterios: [
       { k: 'A', desc: 'Consulta médica ou de enfermagem', pts: 25 },
       { k: 'B', desc: 'Peso e altura (antropometria)', pts: 25 },
@@ -239,6 +244,8 @@ const MODULOS = {
   },
   c7: {
     titulo: 'C7 — Cuidado da Mulher na Prevenção do Câncer',
+    icone: '🎗️',
+    subtitulo: 'Acompanhamento dos indicadores por mulher (dados da planilha)',
     criterios: [
       { k: 'A', desc: 'Rastreamento de câncer do colo do útero (25–64 anos), a cada 36 meses', pts: 20, nmCol: 'NM.A', dnCol: 'DN.A' },
       { k: 'B', desc: 'Vacina HPV (9–14 anos, sexo feminino)', pts: 30, nmCol: 'NM.B', dnCol: 'DN.B' },
@@ -248,6 +255,8 @@ const MODULOS = {
   },
   cvat: {
     titulo: 'CVAT — Vínculo e Acompanhamento Territorial',
+    icone: '🗺️',
+    subtitulo: 'Acompanhamento do vínculo e território por cidadão (dados da planilha)',
     criterios: [
       { k: 'A', desc: 'Cadastro atualizado — FCI + ficha de domicílio (3 pts) ou só FCI (1,5 pt), em 24 meses', pts: 30 },
       { k: 'B', desc: '≥2 contatos em 12 meses (atendimento, atividade coletiva ou visita domiciliar)', pts: 70 },
@@ -306,6 +315,32 @@ const CVAT_EXEMPLO = {
   ],
 };
 
+// ─────────────────────────────────────────────
+//  NAVEGAÇÃO LATERAL (compartilhada entre Painel e Módulo)
+// ─────────────────────────────────────────────
+function renderSidebarNav(ativo) {
+  const modulosComDado = Object.keys(MODULOS).filter(id => resultadosPorModulo[id] && resultadosPorModulo[id].length);
+  const item = (icone, label, ativoItem, onclick) =>
+    `<div class="app-nav-item${ativoItem ? ' active' : ''}" onclick="${onclick}">
+      <span class="app-nav-icon">${icone}</span><span>${label}</span>
+     </div>`;
+  let html = '<div class="app-nav">';
+  html += item('📊', 'Painel de Indicadores', ativo === 'inicial', 'voltarInicio()');
+  modulosComDado.forEach(id => {
+    html += item(MODULOS[id].icone || '📋', MODULOS[id].titulo.split(' — ')[0], ativo === id, `abrirModulo('${id}')`);
+  });
+  html += item('⬆️', 'Importar Planilha', false, 'reimportar()');
+  html += '</div>';
+  return html;
+}
+
+function atualizarSidebarNav(ativo) {
+  const a = document.getElementById('sidebar-nav-inicial');
+  if (a) a.innerHTML = renderSidebarNav(ativo);
+  const b = document.getElementById('sidebar-nav-modulo');
+  if (b) b.innerHTML = renderSidebarNav(ativo);
+}
+
 function classificarIndic(tipo, valor) {
   if (tipo === 'media') return 'neutro';
   if (valor >= 75) return 'bom';
@@ -323,6 +358,7 @@ function mediaPontos(id) {
 function renderDashboard() {
   const alvo = document.getElementById('dashboard-municipal');
   if (!alvo) return;
+  atualizarSidebarNav('inicial');
 
   INDICADORES_MUNICIPAIS.forEach(ind => {
     ind._real = false;
@@ -480,9 +516,14 @@ const PAGE_SIZE = 100;
 // ─────────────────────────────────────────────
 //  NORMALIZAÇÃO DE CPF
 // ─────────────────────────────────────────────
+// CPF tem 11 dígitos e CNS tem 15 — qualquer outra contagem de dígitos é
+// lixo de outra coluna da planilha (célula deslocada, texto solto etc.),
+// não documento de pessoa de verdade, então descarta em vez de completar
+// com zero à esquerda (o que fabricava CPF/CNS falso a partir de lixo).
 function normCPF(v) {
   if (!v && v !== 0) return '';
-  return String(v).replace(/\D/g, '').padStart(11, '0');
+  const digitos = String(v).replace(/\D/g, '');
+  return (digitos.length === 11 || digitos.length === 15) ? digitos : '';
 }
 
 // ─────────────────────────────────────────────
@@ -581,6 +622,7 @@ function parseSiaps(rows, nome, moduloId) {
     headers.forEach((h, j) => { obj[h] = row[j] !== undefined ? String(row[j]).trim() : ''; });
     if (!obj['CPF'] && !obj['CNS']) continue;
     obj['_cpf_norm'] = normCPF(obj['CPF'] || obj['CNS']);
+    if (!obj['_cpf_norm']) continue;
     data.push(obj);
   }
   rawSiapsPorModulo[moduloId] = data;
@@ -851,7 +893,10 @@ function filtrar() {
   document.getElementById('count-label').textContent =
     `${filtered.length} de ${merged.length} registros`;
 
-  sortData(); page = 0; renderTable();
+  sortData(); page = 0;
+  const tabAtivaEl = document.querySelector('.tab-btn.active');
+  if (tabAtivaEl && tabAtivaEl.dataset.tab === 'consolidado') renderConsolidado();
+  else renderTable();
 }
 
 function sortData() {
@@ -906,9 +951,9 @@ function renderTable() {
     <th class="col-telefone">Telefone</th>
     <th class="sortable" onclick="setSort('nascimento')">Nascimento${arr('nascimento')}</th>
     <th class="sortable" onclick="setSort('idade')" style="min-width:70px">Idade${arr('idade')}</th>
-    <th class="sortable" onclick="setSort('pontos')" style="min-width:100px">Pontuação${arr('pontos')}</th>
     ${critHeaders}
-    <th class="sortable" onclick="setSort('situacao')" style="min-width:130px">Situação${arr('situacao')}</th>
+    <th class="sortable" onclick="setSort('pontos')" style="min-width:90px">Pontuação${arr('pontos')}</th>
+    <th class="sortable" onclick="setSort('situacao')" style="min-width:120px">Situação${arr('situacao')}</th>
   </tr></thead><tbody>`;
 
   slice.forEach(r => {
@@ -917,20 +962,14 @@ function renderTable() {
       : `<span class="sem">Cidadão não vinculado à ESF</span>`;
 
     const ptsClass = r.pontos === 100 ? 'pts-100' : r.pontos === 0 ? 'pts-0' : 'pts-mid';
-    const scoreHtml = `<div class="score-bar">
-      ${cfgR.colsCrit.map(k =>
-        `<div class="pip ${r[k]?'on':'off'}" title="${cfgR.criterios.find(c=>c.k===k)?.desc||k}"></div>`
-      ).join('')}
-      <span class="score-pts ${ptsClass}">${r.pontos} pts</span>
-    </div>`;
+    const pontosHtml = `<span class="score-pts ${ptsClass}">${r.pontos} pts</span>`;
 
     const bc = v => `<span class="badge-crit ${v?'ok':'no'}">${v?'✓':'✗'}</span>`;
     const critCells = cfgR.colsCrit.map(k => `<td class="center">${bc(r[k])}</td>`).join('');
 
-    let tagHtml;
-    if (r.sem_cadastro)               tagHtml = `<span class="tag sem">⚠ Não vinculado</span>`;
-    else if (r.situacao==='completo') tagHtml = `<span class="tag ok">✅ Completo</span>`;
-    else                               tagHtml = `<span class="tag pend">❌ Pendente · ${r.pontos} pts</span>`;
+    const tagHtml = r.situacao === 'completo'
+      ? `<span class="tag ok">✅ Completo</span>`
+      : `<span class="tag pend">❌ Incompleto</span>`;
 
     html += `<tr>
       <td class="nome-cell">${nomeCel}</td>
@@ -939,8 +978,8 @@ function renderTable() {
       <td class="col-telefone">${r.telefone || '—'}</td>
       <td>${r.nascimento || '—'}</td>
       <td class="center">${r.idade ?? '—'}</td>
-      <td>${scoreHtml}</td>
       ${critCells}
+      <td class="center">${pontosHtml}</td>
       <td>${tagHtml}</td>
     </tr>`;
   });
@@ -960,6 +999,83 @@ function renderTable() {
 }
 
 function changePage(dir) { page += dir; renderTable(); }
+
+// ─────────────────────────────────────────────
+//  ABAS: Relatório Nominal / Relatório Consolidado
+// ─────────────────────────────────────────────
+function setTab(t) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  document.getElementById('table-toolbar').style.display        = t === 'nominal' ? '' : 'none';
+  document.getElementById('table-container').style.display      = t === 'nominal' ? '' : 'none';
+  document.getElementById('consolidado-container').style.display = t === 'consolidado' ? '' : 'none';
+  if (t === 'consolidado') renderConsolidado();
+}
+
+// Resumo por microárea: total, completos/incompletos e adesão a cada
+// critério — reflete os mesmos filtros/busca já aplicados na aba nominal.
+function renderConsolidado() {
+  const cfgR = MODULOS[moduloAtivo];
+  const alvo = document.getElementById('consolidado-container');
+  if (!cfgR || !alvo) return;
+
+  const grupos = new Map();
+  filtered.forEach(r => {
+    const key = r.microarea || '(sem microárea)';
+    if (!grupos.has(key)) grupos.set(key, { total: 0, completo: 0, crits: Object.fromEntries(cfgR.colsCrit.map(k => [k, 0])) });
+    const g = grupos.get(key);
+    g.total++;
+    if (r.situacao === 'completo') g.completo++;
+    cfgR.colsCrit.forEach(k => { if (r[k]) g.crits[k]++; });
+  });
+
+  if (!grupos.size) {
+    alvo.innerHTML = `<div class="empty-state">
+      <div class="icon">📊</div>
+      <h3>Nenhum registro para consolidar</h3>
+      <p>Ajuste os filtros na barra acima ou limpe a busca.</p>
+     </div>`;
+    return;
+  }
+
+  const linhas = [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR', { numeric: true }));
+  const critHeaders = cfgR.colsCrit.map(k => `<th class="center" title="${cfgR.criterios.find(c => c.k === k)?.desc || k}">${k}</th>`).join('');
+
+  let totGeral = 0, complGeral = 0, linhasHtml = '';
+  linhas.forEach(([key, g]) => {
+    totGeral += g.total; complGeral += g.completo;
+    const pctCompleto = pct(g.completo, g.total);
+    const critCells = cfgR.colsCrit.map(k => `<td class="center">${g.crits[k]}/${g.total}</td>`).join('');
+    const tagClasse = pctCompleto >= 75 ? 'ok' : pctCompleto >= 50 ? 'mid' : 'pend';
+    linhasHtml += `<tr>
+      <td><strong>${key === '(sem microárea)' ? key : 'Microárea ' + key}</strong></td>
+      <td class="center">${g.total}</td>
+      ${critCells}
+      <td class="center">${g.completo}</td>
+      <td class="center"><span class="tag ${tagClasse}">${pctCompleto}%</span></td>
+      <td class="center">${g.total - g.completo}</td>
+    </tr>`;
+  });
+
+  alvo.innerHTML = `<div class="table-scroll"><table>
+    <thead><tr>
+      <th>Microárea</th>
+      <th class="center">Total</th>
+      ${critHeaders}
+      <th class="center">Completos</th>
+      <th class="center">% Completo</th>
+      <th class="center">Incompletos</th>
+    </tr></thead>
+    <tbody>${linhasHtml}</tbody>
+    <tfoot><tr style="font-weight:700;background:var(--cinza-bg)">
+      <td>Total geral</td>
+      <td class="center">${totGeral}</td>
+      ${cfgR.colsCrit.map(() => '<td></td>').join('')}
+      <td class="center">${complGeral}</td>
+      <td class="center">${pct(complGeral, totGeral)}%</td>
+      <td class="center">${totGeral - complGeral}</td>
+    </tr></tfoot>
+  </table></div>`;
+}
 
 // ─────────────────────────────────────────────
 //  EXPORTAR EXCEL
