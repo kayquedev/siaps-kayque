@@ -67,8 +67,9 @@ function configurarModulo(id) {
 
   document.getElementById('legenda-criterios').innerHTML = cfg.criterios.map(c =>
     `<div style="display:flex;align-items:flex-start;gap:8px">
-      <span style="font-size:11px;font-weight:800;color:var(--azul);min-width:16px">${c.k}</span>
-      <span style="font-size:11px;color:var(--muted)">${c.desc} <strong>(${c.pts} pts)</strong></span>
+      <span class="legenda-letra" data-tip="${esc(c.desc)}" data-tip-titulo="Critério ${c.k} · ${c.pts} pts"
+            style="font-size:11px;font-weight:800;color:var(--azul);min-width:16px">${c.k}</span>
+      <span style="font-size:11px;color:var(--muted)">${esc(c.desc)} <strong>(${c.pts} pts)</strong></span>
      </div>`
   ).join('') +
   `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--cinza-borda);font-size:11px;color:var(--muted)">
@@ -88,23 +89,11 @@ function configurarModulo(id) {
 
   // Fonte dos dados (substitui o antigo upload dentro do módulo — os
   // arquivos já foram importados na tela anterior)
-  const rows = rawSiapsPorModulo[id] || [];
-  const fonte = document.getElementById('fonte-dados');
-  if (fonte) {
-    fonte.innerHTML =
-      `<div class="fonte-item"><strong>${rows.length}</strong> registros no SIAPS</div>
-       <div class="fonte-item"><strong>${Object.keys(rawVinc || {}).length}</strong> cadastros vinculados</div>`;
-  }
+  renderFonteDados(id);
 
-  // Preencher microáreas
-  const areas = [...new Set(merged.map(r => r.microarea).filter(Boolean))].sort();
-  const sel = document.getElementById('fil-microarea');
-  sel.innerHTML = '<option value="">Todas as microáreas</option>';
-  areas.forEach(a => {
-    const opt = document.createElement('option');
-    opt.value = a; opt.textContent = 'Microárea ' + a;
-    sel.appendChild(opt);
-  });
+  // Preencher microáreas (ao abrir o módulo, o filtro parte de "Todas")
+  document.getElementById('fil-microarea').value = '';
+  preencherMicroareas();
 
   atualizarStats();
 
@@ -121,6 +110,32 @@ function configurarModulo(id) {
   filtrar();
 }
 
+function renderFonteDados(id) {
+  const rows = rawSiapsPorModulo[id] || [];
+  const fonte = document.getElementById('fonte-dados');
+  if (fonte) {
+    fonte.innerHTML =
+      `<div class="fonte-item"><strong>${rows.length}</strong> registros no SIAPS</div>
+       <div class="fonte-item"><strong>${Object.keys(rawVinc || {}).length}</strong> cadastros vinculados</div>`;
+  }
+}
+
+// Preenche o filtro de microáreas a partir de `merged`, preservando a
+// seleção atual quando ela ainda existir (usado também após importar mais
+// planilhas sem sair da consulta).
+function preencherMicroareas() {
+  const sel = document.getElementById('fil-microarea');
+  const atual = sel.value;
+  const areas = [...new Set(merged.map(r => r.microarea).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas as microáreas</option>';
+  areas.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = 'Microárea ' + a;
+    sel.appendChild(opt);
+  });
+  sel.value = areas.includes(atual) ? atual : '';
+}
+
 function voltarInicio() {
   document.getElementById('tela-modulo').style.display  = 'none';
   document.getElementById('tela-inicial').style.display = 'flex';
@@ -135,8 +150,12 @@ function limparEstadoGlobal() {
   rawVinc = null;
   rawSiapsPorModulo = {};
   resultadosPorModulo = {};
+  statusImport = {};
   merged = []; filtered = [];
   moduloAtivo = null;
+  importacaoIncremental = false;
+  const modal = document.getElementById('modal-importar');
+  if (modal) modal.style.display = 'none';
 }
 
 // ─────────────────────────────────────────────
@@ -268,52 +287,45 @@ Object.values(MODULOS).forEach(cfg => { cfg.colsCrit = cfg.criterios.map(c => c.
 
 // ─────────────────────────────────────────────
 //  DASHBOARD GERAL MUNICIPAL
-//  C1, M1, M2 e B1-B6 ainda não têm fonte de dados
-//  integrada (dependem de SISAB ou e-SUS) e seguem
-//  com valores ilustrativos.
+//  Só exibe valor de indicador quando há planilha importada
+//  (C2–C7 e CVAT). C1, M1, M2 e B1-B6 ainda não têm fonte de
+//  dados integrada (dependem de SISAB ou e-SUS) e aparecem sem
+//  valor — nenhum número é inventado.
 // ─────────────────────────────────────────────
 const INDICADORES_MUNICIPAIS = [
-  { grupo: 'ESF / eAP', codigo: 'C1', nome: 'Mais Acesso à APS', tipo: 'percentual', valor: 62,
+  { grupo: 'ESF / eAP', codigo: 'C1', nome: 'Mais Acesso à APS', tipo: 'percentual',
     desc: 'Atendimentos agendados vs. demanda espontânea', moduloId: null },
-  { grupo: 'ESF / eAP', codigo: 'C2', nome: 'Desenvolvimento Infantil', tipo: 'score', valor: 74,
+  { grupo: 'ESF / eAP', codigo: 'C2', nome: 'Desenvolvimento Infantil', tipo: 'score',
     desc: '0–24 meses · 5 boas práticas (20 pts cada)', moduloId: 'c2' },
-  { grupo: 'ESF / eAP', codigo: 'C3', nome: 'Gestação e Puerpério', tipo: 'score', valor: 58,
+  { grupo: 'ESF / eAP', codigo: 'C3', nome: 'Gestação e Puerpério', tipo: 'score',
     desc: 'Pré-natal e puerpério · 11 boas práticas', moduloId: 'c3' },
-  { grupo: 'ESF / eAP', codigo: 'C4', nome: 'Diabetes', tipo: 'score', valor: 71,
+  { grupo: 'ESF / eAP', codigo: 'C4', nome: 'Diabetes', tipo: 'score',
     desc: '6 boas práticas · pontuação variável por critério', moduloId: 'c4' },
-  { grupo: 'ESF / eAP', codigo: 'C5', nome: 'Hipertensão', tipo: 'score', valor: 69,
+  { grupo: 'ESF / eAP', codigo: 'C5', nome: 'Hipertensão', tipo: 'score',
     desc: '4 boas práticas · 25 pts cada', moduloId: 'c5' },
-  { grupo: 'ESF / eAP', codigo: 'C6', nome: 'Cuidado da Pessoa Idosa', tipo: 'score', valor: 81,
+  { grupo: 'ESF / eAP', codigo: 'C6', nome: 'Cuidado da Pessoa Idosa', tipo: 'score',
     desc: '≥60 anos · 4 boas práticas · 25 pts cada', moduloId: 'c6' },
-  { grupo: 'ESF / eAP', codigo: 'C7', nome: 'Cuidado da Mulher', tipo: 'score', valor: 55,
+  { grupo: 'ESF / eAP', codigo: 'C7', nome: 'Cuidado da Mulher', tipo: 'score',
     desc: 'Colo do útero, HPV, saúde sexual e mamografia por faixa etária', moduloId: 'c7' },
 
-  { grupo: 'eMulti', codigo: 'M1', nome: 'Média de Atendimentos pela eMulti', tipo: 'media', valor: 3.4,
+  { grupo: 'eMulti', codigo: 'M1', nome: 'Média de Atendimentos pela eMulti', tipo: 'media',
     desc: 'Atendimentos + atividades coletivas por pessoa (janela de 4 meses)', moduloId: null },
-  { grupo: 'eMulti', codigo: 'M2', nome: 'Ações Interprofissionais Compartilhadas', tipo: 'percentual', valor: 47,
+  { grupo: 'eMulti', codigo: 'M2', nome: 'Ações Interprofissionais Compartilhadas', tipo: 'percentual',
     desc: 'Ações com 2+ profissionais ou cuidado compartilhado', moduloId: null },
 
-  { grupo: 'Saúde Bucal (eSB)', codigo: 'B1', nome: '1ª Consulta Odontológica Programática', tipo: 'percentual', valor: 38,
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B1', nome: '1ª Consulta Odontológica Programática', tipo: 'percentual',
     desc: 'Primeira consulta programática por cirurgião-dentista', moduloId: null },
-  { grupo: 'Saúde Bucal (eSB)', codigo: 'B2', nome: 'Tratamento Concluído', tipo: 'percentual', valor: 64,
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B2', nome: 'Tratamento Concluído', tipo: 'percentual',
     desc: 'Dentro da coorte com 1ª consulta programática', moduloId: null },
-  { grupo: 'Saúde Bucal (eSB)', codigo: 'B3', nome: 'Taxa de Exodontia', tipo: 'percentual', valor: 12,
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B3', nome: 'Taxa de Exodontia', tipo: 'percentual',
     desc: 'Exodontias sobre o total de procedimentos odontológicos', moduloId: null },
-  { grupo: 'Saúde Bucal (eSB)', codigo: 'B4', nome: 'Escovação Supervisionada', tipo: 'percentual', valor: 29,
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B4', nome: 'Escovação Supervisionada', tipo: 'percentual',
     desc: 'Crianças de 6–12 anos em atividade coletiva', moduloId: null },
-  { grupo: 'Saúde Bucal (eSB)', codigo: 'B5', nome: 'Procedimentos Preventivos', tipo: 'percentual', valor: 53,
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B5', nome: 'Procedimentos Preventivos', tipo: 'percentual',
     desc: 'Preventivos sobre o total de procedimentos individuais', moduloId: null },
-  { grupo: 'Saúde Bucal (eSB)', codigo: 'B6', nome: 'TRA/ART', tipo: 'percentual', valor: 8,
+  { grupo: 'Saúde Bucal (eSB)', codigo: 'B6', nome: 'TRA/ART', tipo: 'percentual',
     desc: 'Tratamento Restaurador Atraumático sobre procedimentos restauradores', moduloId: null },
 ];
-
-const CVAT_EXEMPLO = {
-  pontuacao: 6.4, max: 10,
-  dimensoes: [
-    { label: 'Cadastro (30%)', pts: 2.1, max: 3 },
-    { label: 'Acompanhamento territorial (70%)', pts: 4.3, max: 7 },
-  ],
-};
 
 // ─────────────────────────────────────────────
 //  NAVEGAÇÃO LATERAL (compartilhada entre Painel e Módulo)
@@ -329,7 +341,8 @@ function renderSidebarNav(ativo) {
   modulosComDado.forEach(id => {
     html += item(MODULOS[id].icone || '📋', MODULOS[id].titulo.split(' — ')[0], ativo === id, `abrirModulo('${id}')`);
   });
-  html += item('⬆️', 'Importar Planilha', false, 'reimportar()');
+  // abre o modal por cima da tela atual — não descarta nada do que já foi importado
+  html += item('⬆️', 'Importar Planilha', false, 'abrirImportacao()');
   html += '</div>';
   return html;
 }
@@ -360,58 +373,14 @@ function renderDashboard() {
   if (!alvo) return;
   atualizarSidebarNav('inicial');
 
-  INDICADORES_MUNICIPAIS.forEach(ind => {
-    ind._real = false;
-    if (ind.moduloId) {
-      const media = mediaPontos(ind.moduloId);
-      if (media !== null) { ind._real = true; ind._valorReal = media; }
-    }
-  });
+  const dadosCvat     = resultadosPorModulo.cvat;
+  const cvatImportado = !!(dadosCvat && dadosCvat.length);
 
-  const dadosCvat   = resultadosPorModulo.cvat;
-  const cvatReal    = !!(dadosCvat && dadosCvat.length);
-  const temDadoReal = INDICADORES_MUNICIPAIS.some(i => i._real) || cvatReal;
-
-  const comScore = INDICADORES_MUNICIPAIS.filter(i => i.tipo !== 'media');
-  const mediaGeral = Math.round(
-    comScore.reduce((s, i) => s + (i._real ? i._valorReal : i.valor), 0) / comScore.length
-  );
-
-  let populacaoValor = '34.5<span class="unit">mil</span>';
-  let populacaoSub   = 'cadastros ativos no território (estimativa)';
-  if (temDadoReal) {
-    const cpfsUnicos = new Set();
-    Object.values(resultadosPorModulo).forEach(lista => lista.forEach(r => { if (r.cpf_norm) cpfsUnicos.add(r.cpf_norm); }));
-    populacaoValor = `${cpfsUnicos.size}`;
-    populacaoSub   = 'pessoas únicas nos indicadores importados';
-  }
-
-  const competencia = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
+  // Nenhum número é inventado: o card só mostra valor/barra quando existe
+  // planilha importada para aquele indicador.
   let html = `
-    <div class="dash-disclaimer">
-      ⚠️ <span><strong>${temDadoReal ? 'Dados reais das planilhas importadas.' : 'Valores ilustrativos.'}</strong> C2, C3, C4, C5, C6, C7 e CVAT são calculados a partir das listas nominais do SIAPS — clique no card para ver a lista nominal. C1, M1, M2 e B1-B6 ainda dependem de outra fonte (SISAB ou e-SUS) e seguem ilustrativos.</span>
-    </div>
-    <div class="dash-kpis">
-      <div class="kpi-tile">
-        <div class="kpi-label">Média geral dos indicadores</div>
-        <div class="kpi-value">${mediaGeral}<span class="unit">%</span></div>
-        <div class="kpi-sub">15 indicadores acompanhados</div>
-      </div>
-      <div class="kpi-tile">
-        <div class="kpi-label">Equipes cadastradas</div>
-        <div class="kpi-value">19</div>
-        <div class="kpi-sub">12 ESF/eAP · 4 eSB · 3 eMulti</div>
-      </div>
-      <div class="kpi-tile">
-        <div class="kpi-label">População coberta</div>
-        <div class="kpi-value">${populacaoValor}</div>
-        <div class="kpi-sub">${populacaoSub}</div>
-      </div>
-      <div class="kpi-tile">
-        <div class="kpi-label">Competência de referência</div>
-        <div class="kpi-value" style="font-size:18px;text-transform:capitalize">${competencia}</div>
-      </div>
+    <div class="dash-disclaimer info">
+      ℹ️ <span><strong>Valores calculados a partir das planilhas importadas.</strong> C2, C3, C4, C5, C6, C7 e CVAT usam as listas nominais do SIAPS — clique no card para ver a lista nominal. C1, M1, M2 e B1-B6 ainda dependem de outra fonte (SISAB ou e-SUS) e não exibem valor.</span>
     </div>`;
 
   const grupos = new Map();
@@ -429,31 +398,33 @@ function renderDashboard() {
       <div class="indic-grid">`;
 
     itens.forEach(ind => {
-      const valorExibido = ind._real ? ind._valorReal : ind.valor;
-      const cls = classificarIndic(ind.tipo, valorExibido);
-      const unidade = ind.tipo === 'percentual' ? '%' : ind.tipo === 'score' ? ' pts' : '';
-      const pctBarra = ind.tipo === 'media' ? Math.min(100, valorExibido / 5 * 100) : valorExibido;
+      const valor = ind.moduloId ? mediaPontos(ind.moduloId) : null;
 
-      let tagClasse = 'breve', tagTexto = 'Em breve', clicavel = false, onclick = '', rodape = '';
-      if (ind._real) {
-        tagClasse = 'ativo'; tagTexto = 'Dado real'; clicavel = true;
+      let tagClasse = 'breve', tagTexto = 'Em breve', clicavel = false, onclick = '';
+      let valorHtml = '', barraHtml = '', rodape = '';
+      if (valor !== null) {
+        const cls = classificarIndic(ind.tipo, valor);
+        const unidade = ind.tipo === 'percentual' ? '%' : ind.tipo === 'score' ? ' pts' : '';
+        tagClasse = 'ativo'; tagTexto = 'Importado'; clicavel = true;
         onclick = ` onclick="abrirModulo('${ind.moduloId}')"`;
+        valorHtml = `<div class="indic-value ${cls}"><span class="num">${valor}</span><span class="unit">${unidade}</span></div>`;
+        barraHtml = `<div class="indic-bar"><div class="indic-bar-fill ${cls}" style="width:${valor}%"></div></div>`;
         rodape = `<div class="indic-link">Acessar lista nominal →</div>`;
       } else if (ind.moduloId) {
         tagClasse = 'pendente'; tagTexto = 'Não importado'; clicavel = true;
-        onclick = ` onclick="irParaUpload()"`;
+        onclick = ` onclick="abrirImportacao()"`;
         rodape = `<div class="indic-link">Importar planilha →</div>`;
       }
 
-      html += `<div class="indic-card${clicavel ? ' clickable' : ''}"${onclick} title="${ind.desc}">
+      html += `<div class="indic-card${clicavel ? ' clickable' : ''}"${onclick} title="${esc(ind.desc)}">
         <div class="indic-card-top">
           <span class="indic-code">${ind.codigo}</span>
           <span class="indic-tag ${tagClasse}">${tagTexto}</span>
         </div>
-        <div class="indic-value ${cls}"><span class="num">${valorExibido}</span><span class="unit">${unidade}</span></div>
+        ${valorHtml}
         <div class="indic-name">${ind.nome}</div>
         <div class="indic-desc">${ind.desc}</div>
-        <div class="indic-bar"><div class="indic-bar-fill ${cls}" style="width:${pctBarra}%"></div></div>
+        ${barraHtml}
         ${rodape}
       </div>`;
     });
@@ -461,28 +432,21 @@ function renderDashboard() {
     html += `</div></div>`;
   });
 
-  // CVAT — card em destaque, com escala 0-10
-  let cvatPontuacao = CVAT_EXEMPLO.pontuacao, cvatMax = CVAT_EXEMPLO.max, cvatDims = CVAT_EXEMPLO.dimensoes;
-  if (cvatReal) {
+  // CVAT — card em destaque, com escala 0-10 (só com planilha importada)
+  let cvatCard;
+  if (cvatImportado) {
     const n = dadosCvat.length;
     const mediaCadastro = dadosCvat.reduce((s, r) => s + r.cadastroPts, 0) / n;
     const mediaAcompanhamento = dadosCvat.reduce((s, r) => s + r.acompanhamentoPts, 0) / n;
-    cvatPontuacao = Math.round((mediaCadastro + mediaAcompanhamento) * 10) / 10;
-    cvatDims = [
+    const cvatPontuacao = Math.round((mediaCadastro + mediaAcompanhamento) * 10) / 10;
+    const cvatDims = [
       { label: 'Cadastro (30%)', pts: Math.round(mediaCadastro * 10) / 10, max: 3 },
       { label: 'Acompanhamento territorial (70%)', pts: Math.round(mediaAcompanhamento * 10) / 10, max: 7 },
     ];
-  }
-
-  html += `<div class="dash-group">
-    <div class="dash-group-header">
-      <h3>Vínculo e Acompanhamento Territorial (CVAT)</h3>
-      <span>escore 0–10 · ${cvatReal ? 'dado real' : 'exemplo'}</span>
-    </div>
-    <div class="cvat-card${cvatReal ? ' clickable' : ''}"${cvatReal ? ` onclick="abrirModulo('cvat')"` : ''} title="Cadastro: FCI e ficha de domicílio atualizadas em 24 meses. Acompanhamento: 2+ contatos em 12 meses.">
+    cvatCard = `<div class="cvat-card clickable" onclick="abrirModulo('cvat')" title="Cadastro: FCI e ficha de domicílio atualizadas em 24 meses. Acompanhamento: 2+ contatos em 12 meses.">
       <div class="cvat-score">
         <div class="num">${cvatPontuacao}</div>
-        <div class="max">de ${cvatMax}</div>
+        <div class="max">de 10</div>
       </div>
       <div class="cvat-dims">
         ${cvatDims.map(d => `
@@ -492,8 +456,20 @@ function renderDashboard() {
             <span class="cvat-dim-pts">${d.pts}/${d.max}</span>
           </div>`).join('')}
       </div>
-      ${cvatReal ? `<div class="indic-link" style="flex-basis:100%">Acessar lista nominal →</div>` : ''}
+      <div class="indic-link" style="flex-basis:100%">Acessar lista nominal →</div>
+    </div>`;
+  } else {
+    cvatCard = `<div class="cvat-card clickable" onclick="abrirImportacao()" title="Cadastro: FCI e ficha de domicílio atualizadas em 24 meses. Acompanhamento: 2+ contatos em 12 meses.">
+      <div class="cvat-vazio">Sem planilha importada para o CVAT.<span class="indic-link">Importar planilha →</span></div>
+    </div>`;
+  }
+
+  html += `<div class="dash-group">
+    <div class="dash-group-header">
+      <h3>Vínculo e Acompanhamento Territorial (CVAT)</h3>
+      <span>escore 0–10${cvatImportado ? ' · importado' : ''}</span>
     </div>
+    ${cvatCard}
   </div>`;
 
   alvo.innerHTML = html;
@@ -512,6 +488,21 @@ let sortCol  = null;
 let sortAsc  = true;
 let page     = 0;
 const PAGE_SIZE = 100;
+
+// Estado da importação
+let statusImport = {};              // { vinc: '✅ 120 cadastros', c2: '✅ 45 registros', ... } (texto exibido nos cards)
+let importacaoIncremental = false;  // true enquanto o modal "Importar planilhas" está aberto
+
+// Estado de exibição (só afeta a tela, nunca os dados)
+//  • coluna Telefone: oculta por padrão (classe "mostrar-telefone" no <body>)
+//  • modo privacidade: troca nome/CPF/nascimento/telefone por máscara (classe "privacidade" no <body>)
+let privacidade = false;
+try { privacidade = sessionStorage.getItem('siaps_privacidade') === '1'; } catch (e) { /* sessionStorage indisponível */ }
+
+// Escapa texto vindo de planilha antes de injetar em HTML
+function esc(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 // ─────────────────────────────────────────────
 //  NORMALIZAÇÃO DE CPF
@@ -554,8 +545,8 @@ function calcIdade(dataStr) {
 // ─────────────────────────────────────────────
 function ev(e, tipo, enter) {
   e.preventDefault();
-  const card = document.getElementById('card-' + tipo);
-  if (card) card.classList.toggle('dragover', enter);
+  // funciona tanto no card da tela de importação quanto no do modal
+  if (e.currentTarget) e.currentTarget.classList.toggle('dragover', enter);
 }
 function drop(e, tipo) {
   e.preventDefault();
@@ -564,8 +555,10 @@ function drop(e, tipo) {
   if (file) parseFile(file, tipo);
 }
 function loadFile(e, tipo) {
-  const file = e.target.files[0];
+  const input = e.target;
+  const file = input.files[0];
   if (file) parseFile(file, tipo);
+  input.value = '';   // permite escolher o mesmo arquivo de novo (ex.: depois de corrigi-lo)
 }
 
 // ─────────────────────────────────────────────
@@ -627,7 +620,7 @@ function parseSiaps(rows, nome, moduloId) {
   }
   rawSiapsPorModulo[moduloId] = data;
   setStatus(moduloId, `✅ ${data.length} registros`, nome);
-  checkReady();
+  aoImportar(moduloId);
 }
 
 function parseVinc_csv(rows, nome) {
@@ -658,7 +651,7 @@ function parseVinc_csv(rows, nome) {
   }
   rawVinc = buildVincMap(data);
   setStatus('vinc', `✅ ${data.length} cadastros`, nome);
-  checkReady();
+  aoImportar('vinc');
 }
 
 function parseVinc_xlsx(rows, nome) {
@@ -681,7 +674,7 @@ function parseVinc_xlsx(rows, nome) {
   }
   rawVinc = buildVincMap(data);
   setStatus('vinc', `✅ ${data.length} cadastros`, nome);
-  checkReady();
+  aoImportar('vinc');
 }
 
 function buildVincMap(arr) {
@@ -691,10 +684,14 @@ function buildVincMap(arr) {
 }
 
 function setStatus(tipo, msg, nome) {
-  const card   = document.getElementById('card-' + tipo);
-  const status = document.getElementById('status-' + tipo);
-  if (status) status.textContent = msg;
-  if (card) card.classList.add('loaded');
+  statusImport[tipo] = msg;
+  // atualiza o card da tela de importação ('card-…') e o do modal ('m-card-…')
+  ['', 'm-'].forEach(pref => {
+    const card   = document.getElementById(pref + 'card-' + tipo);
+    const status = document.getElementById(pref + 'status-' + tipo);
+    if (status) status.textContent = msg;
+    if (card) card.classList.add('loaded');
+  });
 }
 
 function checkReady() {
@@ -702,20 +699,36 @@ function checkReady() {
   if (btn) btn.disabled = !(rawVinc && Object.keys(rawSiapsPorModulo).length > 0);
 }
 
+// Chamado quando um arquivo termina de ser lido. Na tela de importação
+// inicial só libera o botão "Importar e ver dashboard"; com o modal aberto
+// (dashboard/módulo já carregados) processa na hora, sem sair da tela.
+function aoImportar(tipo) {
+  if (importacaoIncremental) processarImportacaoIncremental(tipo);
+  else checkReady();
+}
+
 // ─────────────────────────────────────────────
 //  TELA DE IMPORTAÇÃO
 // ─────────────────────────────────────────────
+function htmlUploadBox(prefixo, tipo, titulo, subtitulo, accept) {
+  const status = statusImport[tipo] || '';
+  return `
+    <div class="upload-box${status ? ' loaded' : ''}" id="${prefixo}card-${tipo}"
+         ondragover="ev(event,'${tipo}',true)" ondragleave="ev(event,'${tipo}',false)" ondrop="drop(event,'${tipo}')">
+      <input type="file" accept="${accept}" onchange="loadFile(event,'${tipo}')">
+      <h4>${titulo}</h4>
+      <p>${subtitulo}</p>
+      <div class="status" id="${prefixo}status-${tipo}">${status}</div>
+    </div>`;
+}
+const HTML_CARDS_INDICADORES = prefixo => Object.keys(MODULOS).map(id =>
+  htmlUploadBox(prefixo, id, MODULOS[id].titulo, 'Lista Nominal Qualidade · SIAPS', '.xlsx,.xls,.csv')
+).join('');
+
 function montarTelaUpload() {
   const alvo = document.getElementById('upload-indicadores');
   if (!alvo) return;
-  alvo.innerHTML = Object.keys(MODULOS).map(id => `
-    <div class="upload-box" id="card-${id}"
-         ondragover="ev(event,'${id}',true)" ondragleave="ev(event,'${id}',false)" ondrop="drop(event,'${id}')">
-      <input type="file" accept=".xlsx,.xls,.csv" onchange="loadFile(event,'${id}')">
-      <h4>${MODULOS[id].titulo}</h4>
-      <p>Lista Nominal Qualidade · SIAPS</p>
-      <div class="status" id="status-${id}"></div>
-    </div>`).join('');
+  alvo.innerHTML = HTML_CARDS_INDICADORES('');
 
   const cardVinc = document.getElementById('card-vinc');
   if (cardVinc) cardVinc.classList.remove('loaded', 'dragover');
@@ -725,18 +738,63 @@ function montarTelaUpload() {
   if (btn) btn.disabled = true;
 }
 
+// Cruza a lista nominal SIAPS de um módulo com os Cidadãos Vinculados
+function processarModulo(id) {
+  const cfg   = MODULOS[id];
+  const vinc  = rawVinc || {};
+  return (rawSiapsPorModulo[id] || []).map(s => processarLinha(id, cfg, s, vinc[s['_cpf_norm']] || {}));
+}
+
 function importarTudo() {
   Object.keys(rawSiapsPorModulo).forEach(id => {
-    const cfg  = MODULOS[id];
-    const rows = rawSiapsPorModulo[id];
-    resultadosPorModulo[id] = rows.map(s => {
-      const v = rawVinc[s['_cpf_norm']] || {};
-      return processarLinha(id, cfg, s, v);
-    });
+    resultadosPorModulo[id] = processarModulo(id);
   });
   document.getElementById('tela-upload').style.display   = 'none';
   document.getElementById('tela-inicial').style.display  = 'flex';
   renderDashboard();
+}
+
+// ─────────────────────────────────────────────
+//  IMPORTAR MAIS PLANILHAS (modal) — sem sair da consulta atual
+//  e sem descartar o que já foi importado
+// ─────────────────────────────────────────────
+function abrirImportacao() {
+  importacaoIncremental = true;
+  document.getElementById('modal-upload-vinc').innerHTML =
+    htmlUploadBox('m-', 'vinc', 'Cidadãos Vinculados', '.csv ou .xlsx · e-SUS PEC', '.csv,.xlsx');
+  document.getElementById('modal-upload-indicadores').innerHTML = HTML_CARDS_INDICADORES('m-');
+  document.getElementById('modal-importar').style.display = 'flex';
+}
+
+// Fecha ao clicar no fundo escuro (evento com target = overlay), no × ou em
+// "Concluir" (chamados sem evento).
+function fecharImportacao(e) {
+  if (e && e.target !== e.currentTarget) return;
+  importacaoIncremental = false;
+  document.getElementById('modal-importar').style.display = 'none';
+}
+
+function processarImportacaoIncremental(tipo) {
+  if (!rawVinc) return;
+  // trocar os Cidadãos Vinculados muda nome/microárea de todos os módulos
+  const ids = tipo === 'vinc' ? Object.keys(rawSiapsPorModulo) : [tipo];
+  ids.forEach(id => { resultadosPorModulo[id] = processarModulo(id); });
+
+  const noModulo = document.getElementById('tela-modulo').style.display !== 'none';
+
+  // o painel sempre é refeito (voltarInicio() só exibe a tela, não redesenha);
+  // depois a navegação lateral volta a marcar a tela em que o usuário está
+  renderDashboard();
+  atualizarSidebarNav(noModulo ? moduloAtivo : 'inicial');
+
+  // no módulo aberto: atualiza os dados mantendo busca, filtros, ordem e aba
+  if (noModulo && moduloAtivo && (tipo === 'vinc' || tipo === moduloAtivo) && resultadosPorModulo[moduloAtivo]) {
+    merged = resultadosPorModulo[moduloAtivo];
+    renderFonteDados(moduloAtivo);
+    preencherMicroareas();
+    atualizarStats();
+    filtrar();
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -939,9 +997,10 @@ function renderTable() {
   const arr = col => sortCol === col ? (sortAsc ? ' ▲' : ' ▼') : '';
 
   const cfgR = MODULOS[moduloAtivo];
-  const critHeaders = cfgR.colsCrit.map(k =>
-    `<th title="${cfgR.criterios.find(c=>c.k===k)?.desc||k}" class="sortable" onclick="setSort('${k}')">${k}${arr(k)}</th>`
-  ).join('');
+  const critHeaders = cfgR.colsCrit.map(k => {
+    const c = cfgR.criterios.find(c => c.k === k);
+    return `<th class="sortable" ${tipAttrs(k, c)} onclick="setSort('${k}')">${k}${arr(k)}</th>`;
+  }).join('');
 
   let html = `<div class="table-scroll"><table>
   <thead><tr>
@@ -957,9 +1016,16 @@ function renderTable() {
   </tr></thead><tbody>`;
 
   slice.forEach(r => {
+    // modo privacidade: nome, CPF, nascimento e telefone viram máscara fixa
+    // (não revela nem o tamanho do texto real, e o title também é omitido)
     const nomeCel = r.nome
-      ? `<strong title="${r.nome}">${r.nome}</strong>`
+      ? (privacidade
+          ? `<strong class="mascarado">${MASCARAS.nome}</strong>`
+          : `<strong title="${esc(r.nome)}">${esc(r.nome)}</strong>`)
       : `<span class="sem">Cidadão não vinculado à ESF</span>`;
+    const cpfTxt = privacidade ? MASCARAS.cpf : esc(r.cpf_orig);
+    const nascTxt = r.nascimento ? (privacidade ? MASCARAS.nascimento : esc(r.nascimento)) : '—';
+    const telTxt = r.telefone ? (privacidade ? MASCARAS.telefone : esc(r.telefone)) : '—';
 
     const ptsClass = r.pontos === 100 ? 'pts-100' : r.pontos === 0 ? 'pts-0' : 'pts-mid';
     const pontosHtml = `<span class="score-pts ${ptsClass}">${r.pontos} pts</span>`;
@@ -968,15 +1034,15 @@ function renderTable() {
     const critCells = cfgR.colsCrit.map(k => `<td class="center">${bc(r[k])}</td>`).join('');
 
     const tagHtml = r.situacao === 'completo'
-      ? `<span class="tag ok">✅ Completo</span>`
-      : `<span class="tag pend">❌ Incompleto</span>`;
+      ? `<span class="tag ok">Completo</span>`
+      : `<span class="tag pend">Incompleto</span>`;
 
     html += `<tr>
       <td class="nome-cell">${nomeCel}</td>
-      <td class="mono">${r.cpf_orig}</td>
+      <td class="mono${privacidade ? ' mascarado' : ''}">${cpfTxt}</td>
       <td class="center">${r.microarea || '—'}</td>
-      <td class="col-telefone">${r.telefone || '—'}</td>
-      <td>${r.nascimento || '—'}</td>
+      <td class="col-telefone${privacidade && r.telefone ? ' mascarado' : ''}">${telTxt}</td>
+      <td${privacidade && r.nascimento ? ' class="mascarado"' : ''}>${nascTxt}</td>
       <td class="center">${r.idade ?? '—'}</td>
       ${critCells}
       <td class="center">${pontosHtml}</td>
@@ -1038,7 +1104,7 @@ function renderConsolidado() {
   }
 
   const linhas = [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR', { numeric: true }));
-  const critHeaders = cfgR.colsCrit.map(k => `<th class="center" title="${cfgR.criterios.find(c => c.k === k)?.desc || k}">${k}</th>`).join('');
+  const critHeaders = cfgR.colsCrit.map(k => `<th class="center" ${tipAttrs(k, cfgR.criterios.find(c => c.k === k))}>${k}</th>`).join('');
 
   let totGeral = 0, complGeral = 0, linhasHtml = '';
   linhas.forEach(([key, g]) => {
@@ -1120,6 +1186,94 @@ function exportar() {
 }
 
 // ─────────────────────────────────────────────
+//  EXIBIÇÃO: coluna Telefone, modo privacidade e tooltips
+//  (só afetam o que aparece na tela — os dados não mudam)
+// ─────────────────────────────────────────────
+const MASCARAS = {
+  nome:       '••••••••••••••',
+  cpf:        '•••••••••••',      // 11 posições — cabe na coluna CPF sem ser cortada
+  nascimento: '••/••/••••',
+  telefone:   '(••) •••••-••••',
+};
+
+// Coluna Telefone: oculta por padrão; o botão da toolbar liga/desliga
+function toggleTelefone() {
+  const ligado = document.body.classList.toggle('mostrar-telefone');
+  const btn = document.getElementById('btn-telefone');
+  if (btn) btn.setAttribute('aria-pressed', ligado ? 'true' : 'false');
+}
+
+// Modo privacidade (olho): mascara nome, CPF, nascimento e telefone na
+// tabela — pensado para print de tela e gravação de vídeo. Vale também para
+// o PDF gerado enquanto estiver ativo; a exportação Excel não é afetada.
+function aplicarPrivacidade() {
+  document.body.classList.toggle('privacidade', privacidade);
+  const btn = document.getElementById('btn-privacidade');
+  if (btn) btn.setAttribute('aria-pressed', privacidade ? 'true' : 'false');
+}
+
+function togglePrivacidade() {
+  privacidade = !privacidade;
+  try { sessionStorage.setItem('siaps_privacidade', privacidade ? '1' : '0'); } catch (e) { /* ignora */ }
+  aplicarPrivacidade();
+  if (moduloAtivo) renderTable();
+}
+
+// Tooltip dos critérios (A, B, C…): uma única caixa flutuante reaproveitada,
+// posicionada por JS para não ser cortada pelo overflow da tabela.
+function tipAttrs(k, c) {
+  const desc   = c ? c.desc : k;
+  const titulo = 'Critério ' + k + (c ? ' · ' + c.pts + ' pts' : '');
+  return `data-tip="${esc(desc)}" data-tip-titulo="${esc(titulo)}"`;
+}
+
+function initTooltips() {
+  const box = document.createElement('div');
+  box.id = 'tip-box';
+  document.body.appendChild(box);
+  let atual = null;
+
+  function esconder() { atual = null; box.classList.remove('visivel'); }
+
+  function mostrar(el) {
+    atual = el;
+    box.textContent = '';
+    if (el.dataset.tipTitulo) {
+      const t = document.createElement('strong');
+      t.textContent = el.dataset.tipTitulo;
+      box.appendChild(t);
+    }
+    box.appendChild(document.createTextNode(el.dataset.tip));
+
+    box.style.left = '0px'; box.style.top = '0px';
+    const r = el.getBoundingClientRect();
+    const w = box.offsetWidth, h = box.offsetHeight;
+    let left = r.left + r.width / 2 - w / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+    let top = r.bottom + 8;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    box.style.left = left + 'px';
+    box.style.top  = top + 'px';
+    box.classList.add('visivel');
+  }
+
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest ? e.target.closest('[data-tip]') : null;
+    if (el && el !== atual) mostrar(el);
+    else if (!el && atual) esconder();
+  });
+  document.addEventListener('mouseout', e => {
+    if (atual && !atual.contains(e.relatedTarget)) esconder();
+  });
+  window.addEventListener('scroll', esconder, true);
+}
+
+// ─────────────────────────────────────────────
 //  BOOT
 // ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && importacaoIncremental) fecharImportacao();
+});
+aplicarPrivacidade();
+initTooltips();
 initAuth();

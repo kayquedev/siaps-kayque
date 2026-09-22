@@ -161,6 +161,13 @@
       <small id="mod-subtitulo">Acompanhamento dos indicadores (dados da planilha)</small>
     </div>
     <div class="topbar-actions">
+      <button class="btn-top btn-outline btn-privacidade" id="btn-privacidade" onclick="togglePrivacidade()"
+              aria-pressed="false"
+              title="Ocultar dados pessoais (nome, CPF, nascimento e telefone) — útil para print de tela ou gravação de vídeo">
+        <svg class="ico-eye" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="ico-eye-off" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        <span class="lbl-off">Ocultar dados</span><span class="lbl-on">Dados ocultos</span>
+      </button>
       <button class="btn-top btn-outline" id="btn-exportar" onclick="exportar()" disabled>
         ⬇ Excel
       </button>
@@ -248,8 +255,8 @@
         </div>
         <select class="toolbar-select" id="fil-situacao" onchange="filtrar()">
           <option value="">Todas as situações</option>
-          <option value="completo">✅ Completo (100 pts)</option>
-          <option value="pendente">❌ Incompleto</option>
+          <option value="completo">Completo (100 pts)</option>
+          <option value="pendente">Incompleto</option>
           <option value="sem">⚠️ Não vinculado à ESF</option>
         </select>
         <select class="toolbar-select" id="fil-criterio" onchange="filtrar()">
@@ -258,6 +265,10 @@
         <select class="toolbar-select" id="fil-microarea" onchange="filtrar()">
           <option value="">Todas as microáreas</option>
         </select>
+        <button class="toolbar-btn" id="btn-telefone" onclick="toggleTelefone()" aria-pressed="false"
+                title="Mostrar ou ocultar a coluna Telefone na tabela">
+          <span class="lbl-mostrar">Mostrar telefone</span><span class="lbl-ocultar">Ocultar telefone</span>
+        </button>
         <span class="count-label" id="count-label"></span>
       </div>
 
@@ -282,6 +293,35 @@
     </div><!-- /mod-main -->
   </div><!-- /mod-body -->
 </div><!-- /tela-modulo -->
+
+<!-- ══════════════════════════════════════════
+     MODAL — IMPORTAR MAIS PLANILHAS
+     (abre por cima da tela atual; não descarta o que já foi importado)
+══════════════════════════════════════════ -->
+<div id="modal-importar" class="modal-overlay" style="display:none" onclick="fecharImportacao(event)">
+  <div class="modal-painel" role="dialog" aria-modal="true" aria-labelledby="modal-importar-titulo">
+    <div class="modal-header">
+      <div>
+        <h3 id="modal-importar-titulo">Importar planilhas</h3>
+        <p>Você continua na tela atual e as planilhas já importadas permanecem carregadas. Escolha um arquivo para <strong>adicionar</strong> um indicador novo ou <strong>substituir</strong> um já importado.</p>
+      </div>
+      <button class="modal-fechar" onclick="fecharImportacao()" aria-label="Fechar">×</button>
+    </div>
+    <div class="modal-corpo">
+      <div class="upload-section">
+        <div class="upload-section-label">Cidadãos Vinculados</div>
+        <div class="upload-grid upload-grid-single" id="modal-upload-vinc"></div>
+      </div>
+      <div class="upload-section">
+        <div class="upload-section-label">Listas nominais SIAPS por indicador</div>
+        <div class="upload-grid" id="modal-upload-indicadores"></div>
+      </div>
+    </div>
+    <div class="modal-rodape">
+      <button class="btn-importar" onclick="fecharImportacao()">Concluir</button>
+    </div>
+  </div>
+</div>
 
 <script src="js/app.js"></script>
 </body>
