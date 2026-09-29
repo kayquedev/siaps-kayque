@@ -161,6 +161,12 @@
       <small id="mod-subtitulo">Acompanhamento dos indicadores (dados da planilha)</small>
     </div>
     <div class="topbar-actions">
+      <button class="btn-top btn-outline btn-toggle" id="btn-pdf-criterios" onclick="togglePdfCriterios()"
+              aria-pressed="false"
+              title="Incluir ou não a lista de critérios do indicador ao fim do PDF">
+        <span class="toggle-track"><span class="toggle-knob"></span></span>
+        <span>Critérios no PDF</span>
+      </button>
       <button class="btn-top btn-outline btn-privacidade" id="btn-privacidade" onclick="togglePrivacidade()"
               aria-pressed="false"
               title="Ocultar dados pessoais (nome, CPF, nascimento e telefone) — útil para print de tela ou gravação de vídeo">
@@ -245,7 +251,6 @@
         <h2 id="print-titulo">C6 — Cuidado da Pessoa Idosa · Lista Nominal</h2>
         <p id="print-subtitulo"></p>
         <div class="print-stats" id="print-stats"></div>
-        <div class="print-legenda" id="print-legenda"></div>
       </div>
 
       <!-- Toolbar da tabela -->
@@ -287,6 +292,9 @@
           <p>Se esta mensagem persistir, volte ao início e reimporte as planilhas.</p>
         </div>
       </div>
+
+      <!-- Legenda dos critérios (só no PDF, ao fim da lista, se o toggle estiver ativo) -->
+      <div class="print-legenda" id="print-legenda"></div>
 
       <!-- Relatório consolidado (por microárea) -->
       <div id="consolidado-container" style="flex:1;display:none;flex-direction:column;overflow:auto"></div>

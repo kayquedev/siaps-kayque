@@ -181,7 +181,7 @@ function imprimirPDF() {
     `<span>Pendentes: <strong>${pend} (${pct(pend,total)}%)</strong></span>`;
 
   const cfgP = MODULOS[moduloAtivo];
-  document.getElementById('print-legenda').innerHTML =
+  document.getElementById('print-legenda').innerHTML = !pdfCriterios ? '' :
     `<table class="print-legenda-tb"><thead><tr><th>Critério</th><th>Descrição</th><th>Pontos</th></tr></thead><tbody>` +
     cfgP.colsCrit.map(k => {
       const c = cfgP.criterios.find(c => c.k === k);
@@ -1220,6 +1220,15 @@ function aplicarPrivacidade() {
   document.body.classList.toggle('privacidade', privacidade);
   const btn = document.getElementById('btn-privacidade');
   if (btn) btn.setAttribute('aria-pressed', privacidade ? 'true' : 'false');
+}
+
+// Toggle "Critérios no PDF": quando ativo, a lista de critérios do indicador
+// sai ao fim da lista nominal no PDF. Desligado por padrão.
+let pdfCriterios = false;
+function togglePdfCriterios() {
+  pdfCriterios = !pdfCriterios;
+  const btn = document.getElementById('btn-pdf-criterios');
+  if (btn) btn.setAttribute('aria-pressed', pdfCriterios ? 'true' : 'false');
 }
 
 function togglePrivacidade() {
