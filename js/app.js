@@ -1039,8 +1039,8 @@ function renderTable() {
     const ptsClass = r.pontos === 100 ? 'pts-100' : r.pontos === 0 ? 'pts-0' : 'pts-mid';
     const pontosHtml = `<span class="score-pts ${ptsClass}">${r.pontos} pts</span>`;
 
-    // no PDF os ícones ✓/✗ dão lugar a texto (SIM/NÃO), sem símbolos
-    const bc = v => `<span class="badge-crit ${v?'ok':'no'}">${printAll ? (v?'SIM':'NÃO') : (v?'✓':'✗')}</span>`;
+    // texto SIM/NÃO colorido (sem ícones, fundo ou borda)
+    const bc = v => `<span class="badge-crit ${v?'ok':'no'}">${v?'SIM':'NÃO'}</span>`;
     const critCells = cfgR.colsCrit.map(k => `<td class="center">${bc(r[k])}</td>`).join('');
 
     const tagHtml = r.situacao === 'completo'

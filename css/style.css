@@ -905,12 +905,11 @@ td.nome-cell .sem { color: var(--muted); font-style: italic; font-size: 12px; }
 
 /* Badges e tags */
 .badge-crit {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 24px; height: 24px; border-radius: 6px;
-  font-size: 13px; font-weight: 700;
+  display: inline-block; background: none; border: 0;
+  font-size: 11px; font-weight: 800; letter-spacing: .3px;
 }
-.badge-crit.ok  { background: var(--verde-bg);    color: var(--verde);    }
-.badge-crit.no  { background: var(--vermelho-bg);  color: var(--vermelho); }
+.badge-crit.ok  { color: var(--verde);    }
+.badge-crit.no  { color: var(--vermelho); }
 
 .tag {
   display: inline-flex; align-items: center; gap: 4px;
@@ -1032,8 +1031,9 @@ td.nome-cell .sem { color: var(--muted); font-style: italic; font-size: 12px; }
     display: block; width: 100%; padding: 2px 0; border-radius: 0;
     font-size: 8.5px; font-weight: 800; text-align: center; letter-spacing: .3px;
   }
-  .badge-crit.ok, .tag.ok   { background: #D1FAE5 !important; color: #065F46 !important; }
-  .badge-crit.no, .tag.pend { background: #FEE2E2 !important; color: #991B1B !important; }
+  .badge-crit, .tag { background: none !important; }
+  .badge-crit.ok, .tag.ok   { color: #065F46 !important; }
+  .badge-crit.no, .tag.pend { color: #991B1B !important; }
   .score-pts { font-weight: 800; font-size: 10px; }
   .print-legenda { margin-top: 10px; }
   .print-legenda-tb { width: auto !important; table-layout: auto !important; font-size: 9px; }
