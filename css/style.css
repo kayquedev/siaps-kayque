@@ -1017,9 +1017,29 @@ td.nome-cell .sem { color: var(--muted); font-style: italic; font-size: 12px; }
   thead { display: table-header-group; } /* repete o cabeçalho em cada página */
   tbody tr { page-break-inside: avoid; }
 
-  thead th { background: #071E3D !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  thead th { background: #071E3D !important; color: #fff !important; }
   tbody tr:hover { background: none; }
   .print-header { display: block !important; }
+
+  /* Padrão visual do PDF: grade com bordas em todas as células,
+     zebra nas linhas e status em texto colorido (sem ícones). */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  table { border-collapse: collapse !important; border: 1.5px solid #071E3D; }
+  thead th, tbody td { border: 1px solid #6B7280 !important; vertical-align: middle; }
+  thead th { text-align: center; font-size: 9px; }
+  tbody tr:nth-child(even) td { background: #F3F6FA; }
+  .badge-crit, .tag {
+    display: block; width: 100%; padding: 2px 0; border-radius: 0;
+    font-size: 8.5px; font-weight: 800; text-align: center; letter-spacing: .3px;
+  }
+  .badge-crit.ok, .tag.ok   { background: #D1FAE5 !important; color: #065F46 !important; }
+  .badge-crit.no, .tag.pend { background: #FEE2E2 !important; color: #991B1B !important; }
+  .score-pts { font-weight: 800; font-size: 10px; }
+  .print-legenda { margin-top: 10px; }
+  .print-legenda-tb { width: auto !important; table-layout: auto !important; font-size: 9px; }
+  .print-legenda-tb th, .print-legenda-tb td { text-align: left; }
+  .print-legenda-tb td:nth-child(1), .print-legenda-tb td:nth-child(3) { width: 60px !important; }
+  .print-legenda-tb td:nth-child(2) { width: 420px !important; }
   @page { size: A4 landscape; margin: 10mm; }
 }
 .print-header {

@@ -180,6 +180,15 @@ function imprimirPDF() {
     `<span>Completos: <strong>${completo} (${pct(completo,total)}%)</strong></span>` +
     `<span>Pendentes: <strong>${pend} (${pct(pend,total)}%)</strong></span>`;
 
+  const cfgP = MODULOS[moduloAtivo];
+  document.getElementById('print-legenda').innerHTML =
+    `<table class="print-legenda-tb"><thead><tr><th>Critério</th><th>Descrição</th><th>Pontos</th></tr></thead><tbody>` +
+    cfgP.colsCrit.map(k => {
+      const c = cfgP.criterios.find(c => c.k === k);
+      return c ? `<tr><td class="center"><strong>${k}</strong></td><td>${esc(c.desc)}</td><td class="center">${c.pts}</td></tr>` : '';
+    }).join('') +
+    `</tbody></table>`;
+
   const savedPage = page;
   window._printAll = true;
   renderTable();
@@ -1030,7 +1039,8 @@ function renderTable() {
     const ptsClass = r.pontos === 100 ? 'pts-100' : r.pontos === 0 ? 'pts-0' : 'pts-mid';
     const pontosHtml = `<span class="score-pts ${ptsClass}">${r.pontos} pts</span>`;
 
-    const bc = v => `<span class="badge-crit ${v?'ok':'no'}">${v?'✓':'✗'}</span>`;
+    // no PDF os ícones ✓/✗ dão lugar a texto (SIM/NÃO), sem símbolos
+    const bc = v => `<span class="badge-crit ${v?'ok':'no'}">${printAll ? (v?'SIM':'NÃO') : (v?'✓':'✗')}</span>`;
     const critCells = cfgR.colsCrit.map(k => `<td class="center">${bc(r[k])}</td>`).join('');
 
     const tagHtml = r.situacao === 'completo'
