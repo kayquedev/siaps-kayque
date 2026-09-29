@@ -30,7 +30,7 @@ git archive HEAD index.html css js \
   | ssh -o IdentitiesOnly=yes -i "$CHAVE" "$HOST" "tar -x -C '$DESTINO'"
 
 # confere se o servidor já serve o arquivo publicado
-if [ "$(curl -s "$URL/js/app.js?x=$RANDOM" | tr -d '' | md5sum)" = "$(git show HEAD:js/app.js | tr -d '' | md5sum)" ]; then
+if [ "$(curl -s "$URL/js/app.js?x=$RANDOM" | tr -d '[:cntrl:]' | md5sum)" = "$(git show HEAD:js/app.js | tr -d '[:cntrl:]' | md5sum)" ]; then
   echo "OK: $URL está com a versão $(git rev-parse --short HEAD)."
 else
   echo "Aviso: o app.js servido difere do local; confira no navegador com Ctrl+F5." >&2
