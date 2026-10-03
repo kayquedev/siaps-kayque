@@ -1044,6 +1044,7 @@ function dadosBase(s, v, cond) {
     cnes:      s['CNES']        || '',
     ine:       s['INE']         || '',
     sem_cadastro: !v['Nome'],
+    att_cadastro: v['Data da última atualização cadastral'] || v['Data última atualização cadastral'] || v['Última atualização cadastral'] || '',
     cond_encontrado,
     cond_ativa,
     meses_sem_atendimento,
@@ -1281,6 +1282,7 @@ function renderTable() {
     <th class="sortable" onclick="setSort('pontos')" style="min-width:90px">Pontuação${arr('pontos')}</th>
     <th class="sortable" onclick="setSort('situacao')" style="min-width:120px">Situação${arr('situacao')}</th>
     ${condicoesMapPorModulo[moduloAtivo] ? '<th style="min-width:100px">PEC</th><th style="min-width:90px">Últ. Atend.</th>' : ''}
+    <th style="min-width:100px">Att. Cadastro</th>
   </tr></thead><tbody>`;
 
   slice.forEach(r => {
@@ -1329,6 +1331,7 @@ function renderTable() {
           : '—';
         return `<td class="center">${pecBadge}</td><td class="center">${mesesTxt}</td>`;
       })() : ''}
+      <td class="center">${r.att_cadastro || '—'}</td>
     </tr>`;
   });
 
@@ -1458,6 +1461,7 @@ function exportar() {
       'Meses desde último atendimento': r.meses_sem_atendimento ?? '',
       'Incluído na lista de problemas': r.cond_ativa === true ? 'Sim' : r.cond_ativa === false ? 'Não' : '',
     } : {}),
+    'Att. Cadastro': r.att_cadastro || '',
   }));
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
