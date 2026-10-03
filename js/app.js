@@ -139,11 +139,26 @@ function renderFonteDados(id) {
 function preencherMicroareas() {
   const sel = document.getElementById('fil-microarea');
   const atual = sel.value;
-  const areas = [...new Set(merged.map(r => r.microarea).filter(Boolean))].sort();
+  // Normaliza microáreas: trim + remove vazios; preserva FA/NI explicitamente
+  const areas = [...new Set(
+    merged.map(r => (r.microarea || '').trim()).filter(v => v.length > 0)
+  )].sort((a, b) => {
+    // Ordenação: números primeiro (natural), depois FA/NI por nome
+    const aNum = parseInt(a), bNum = parseInt(b);
+    if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+    if (!isNaN(aNum)) return -1;
+    if (!isNaN(bNum)) return 1;
+    return a.localeCompare(b);
+  });
   sel.innerHTML = '<option value="">Todas as microáreas</option>';
   areas.forEach(a => {
     const opt = document.createElement('option');
-    opt.value = a; opt.textContent = 'Microárea ' + a;
+    opt.value = a;
+    // Label amigável para FA/NI
+    const label = a === 'FA' ? 'Fora da Área (FA)'
+      : a === 'NI' ? 'Não Informada (NI)'
+      : 'Microárea ' + a;
+    opt.textContent = label;
     sel.appendChild(opt);
   });
   sel.value = areas.includes(atual) ? atual : '';
@@ -928,7 +943,7 @@ function encontrarFaltantesNoSIAPS(moduloId) {
     faltantes.push({
       cpf_orig: '', cpf_norm: c._cpf_norm,
       nome: v['Nome'] || c._nome || '',
-      microarea: v['Microárea'] || c._microarea || '',
+      microarea: (v['Microárea'] || c._microarea || '').trim(),
       endereco: v['Endereço'] || '',
       telefone: v['Telefone celular'] || v['Telefone residencial'] || c._telefone || '',
       nascimento: c._nascimento || '', idade: c._idade || null,
@@ -1035,7 +1050,7 @@ function dadosBase(s, v, cond) {
     cpf_orig:  s['CPF'] || s['CNS'] || '',
     cpf_norm:  s['_cpf_norm'],
     nome:      v['Nome']        || '',
-    microarea: v['Microárea']   || '',
+    microarea: (v['Microárea'] || '').trim(),
     endereco:  v['Endereço']    || '',
     telefone:  v['Telefone celular'] || v['Telefone residencial'] || '',
     nascimento,
@@ -1371,7 +1386,7 @@ function renderConsolidado() {
 
   const grupos = new Map();
   filtered.forEach(r => {
-    const key = r.microarea || '(sem microárea)';
+    const key = (r.microarea || '').trim() || '(sem microárea)';
     if (!grupos.has(key)) grupos.set(key, { total: 0, completo: 0, crits: Object.fromEntries(cfgR.colsCrit.map(k => [k, 0])) });
     const g = grupos.get(key);
     g.total++;
