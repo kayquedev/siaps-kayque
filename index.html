@@ -100,6 +100,11 @@
       <div class="upload-grid" id="upload-indicadores"></div>
     </div>
 
+    <div class="upload-section">
+      <div class="upload-section-label">Listas de Condições de Saúde (e-SUS PEC)</div>
+      <div class="upload-grid" id="upload-condicoes"></div>
+    </div>
+
     <button class="btn-importar" id="btn-importar" onclick="importarTudo()" disabled>
       Importar e ver dashboard →
     </button>
@@ -235,6 +240,39 @@
         </div>
       </div>
 
+      <!-- Stats de Condição PEC (visível apenas quando há dados de condições) -->
+      <div class="stats-row" id="stats-condicao" style="display:none">
+        <div class="sidebar-label">Condição no PEC</div>
+        <div class="stat-mini cor-sem" onclick="aplicarFiltroRapidoCondicao('nao_encontrado')" title="Não encontrado no PEC">
+          <div>
+            <div class="stat-mini-label">Não encontrado</div>
+            <div class="stat-mini-sub" id="st-cond-nao-sub"></div>
+          </div>
+          <div class="stat-mini-val" id="st-cond-nao">—</div>
+        </div>
+        <div class="stat-mini" style="border-left:3px solid #D97706" onclick="aplicarFiltroRapidoCondicao('inativa')" title="Condição inativa no PEC">
+          <div>
+            <div class="stat-mini-label">Condição inativa</div>
+            <div class="stat-mini-sub" id="st-cond-inativa-sub"></div>
+          </div>
+          <div class="stat-mini-val" id="st-cond-inativa">—</div>
+        </div>
+        <div class="stat-mini cor-alerta" onclick="aplicarFiltroRapidoCondicao('abandono')" title="Abandono (sem atendimento há meses)">
+          <div>
+            <div class="stat-mini-label">Abandono</div>
+            <div class="stat-mini-sub" id="st-cond-abandono-sub"></div>
+          </div>
+          <div class="stat-mini-val" id="st-cond-abandono">—</div>
+        </div>
+        <div class="stat-mini" style="border-left:3px solid var(--azul-mid)" onclick="aplicarFiltroRapidoCondicao('faltante_siaps')" title="Ativo no PEC mas ausente no SIAPS">
+          <div>
+            <div class="stat-mini-label">Faltante no SIAPS</div>
+            <div class="stat-mini-sub" id="st-cond-faltante-sub"></div>
+          </div>
+          <div class="stat-mini-val" id="st-cond-faltante">—</div>
+        </div>
+      </div>
+
       <!-- Legenda critérios — preenchida dinamicamente -->
       <div class="sidebar-section">
         <div class="sidebar-label" id="legenda-titulo">Critérios C6</div>
@@ -270,6 +308,14 @@
         </select>
         <select class="toolbar-select" id="fil-microarea" onchange="filtrar()">
           <option value="">Todas as microáreas</option>
+        </select>
+        <select class="toolbar-select" id="fil-condicao" onchange="filtrar()" style="display:none">
+          <option value="">Todas as condições PEC</option>
+          <option value="ok">Condição ativa</option>
+          <option value="inativa">Condição inativa</option>
+          <option value="nao_encontrado">Não encontrado no PEC</option>
+          <option value="abandono">Abandono</option>
+          <option value="faltante_siaps">Faltante no SIAPS</option>
         </select>
         <button class="toolbar-btn" id="btn-telefone" onclick="toggleTelefone()" aria-pressed="false"
                 title="Mostrar ou ocultar a coluna Telefone na tabela">
@@ -324,6 +370,10 @@
       <div class="upload-section">
         <div class="upload-section-label">Listas nominais SIAPS por indicador</div>
         <div class="upload-grid" id="modal-upload-indicadores"></div>
+      </div>
+      <div class="upload-section">
+        <div class="upload-section-label">Listas de Condições de Saúde (e-SUS PEC)</div>
+        <div class="upload-grid" id="modal-upload-condicoes"></div>
       </div>
     </div>
     <div class="modal-rodape">

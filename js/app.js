@@ -65,6 +65,13 @@ function configurarModulo(id) {
   document.getElementById('mod-icone').textContent = cfg.icone || '📋';
   atualizarSidebarNav(id);
 
+  // Mostrar/esconder filtro e stats de condição PEC conforme disponibilidade
+  const temCond = !!condicoesMapPorModulo[id];
+  const filCond = document.getElementById('fil-condicao');
+  if (filCond) filCond.style.display = temCond ? '' : 'none';
+  const statsCond = document.getElementById('stats-condicao');
+  if (statsCond) statsCond.style.display = temCond ? '' : 'none';
+
   document.getElementById('legenda-criterios').innerHTML = cfg.criterios.map(c =>
     `<div style="display:flex;align-items:flex-start;gap:8px">
       <span class="legenda-letra" data-tip="${esc(c.desc)}" data-tip-titulo="Critério ${c.k} · ${c.pts} pts"
@@ -114,9 +121,15 @@ function renderFonteDados(id) {
   const rows = rawSiapsPorModulo[id] || [];
   const fonte = document.getElementById('fonte-dados');
   if (fonte) {
-    fonte.innerHTML =
+    let html =
       `<div class="fonte-item"><strong>${rows.length}</strong> registros no SIAPS</div>
        <div class="fonte-item"><strong>${Object.keys(rawVinc || {}).length}</strong> cadastros vinculados</div>`;
+    // Adicionar contagem de condições PEC quando disponível
+    const condRows = condicoesMapPorModulo[id] ? Object.keys(condicoesMapPorModulo[id]).length : 0;
+    if (condRows > 0) {
+      html += `<div class="fonte-item"><strong>${condRows}</strong> registros na lista de condições PEC</div>`;
+    }
+    fonte.innerHTML = html;
   }
 }
 
@@ -150,6 +163,9 @@ function limparEstadoGlobal() {
   rawVinc = null;
   rawSiapsPorModulo = {};
   resultadosPorModulo = {};
+  rawCondicoesPorTema = {};
+  condicoesMapPorModulo = {};
+  statusCondicoes = {};
   statusImport = {};
   merged = []; filtered = [];
   moduloAtivo = null;
@@ -295,6 +311,30 @@ const MODULOS = {
 Object.values(MODULOS).forEach(cfg => { cfg.colsCrit = cfg.criterios.map(c => c.k); });
 
 // ─────────────────────────────────────────────
+//  CONDIÇÕES DE SAÚDE (e-SUS PEC)
+//  Mapeamento entre listas temáticas do PEC e módulos SIAPS
+// ─────────────────────────────────────────────
+const CONDICOES_PEC = {
+  hipertensao:         { label: 'Hipertensão',            moduloId: 'c5', tema: 'Hipertensão' },
+  diabetes:            { label: 'Diabetes',               moduloId: 'c4', tema: 'Diabetes' },
+  gestacao_puerperio:  { label: 'Gestação e Puerpério',   moduloId: 'c3', tema: 'Gestação e Puerpério' },
+  pessoa_idosa:        { label: 'Pessoa Idosa',           moduloId: 'c6', tema: 'Pessoa Idosa' },
+  desenvolvimento_inf: { label: 'Desenvolvimento Infantil', moduloId: 'c2', tema: 'Desenvolvimento Infantil' },
+  saude_mulher:        { label: 'Saúde da Mulher',        moduloId: 'c7', tema: 'Saúde da Mulher' },
+};
+// Itens "em breve" — sem moduloId, aparecem desabilitados na tela de upload
+const CONDICOES_EM_BREVE = [
+  { key: 'lista_geral',  label: 'Lista Geral' },
+  { key: 'saude_bucal',  label: 'Saúde Bucal' },
+];
+
+// Limiar de abandono por módulo (meses sem atendimento médico no PEC)
+const LIMITE_ABANDONO_MESES = {
+  c4: 6, c5: 6,   // Diabetes e Hipertensão: 6 meses
+  c2: 12, c3: 12, c6: 12, c7: 12,  // Demais: 12 meses
+};
+
+// ─────────────────────────────────────────────
 //  DASHBOARD GERAL MUNICIPAL
 //  Só exibe valor de indicador quando há planilha importada
 //  (C2–C7 e CVAT). C1, M1, M2 e B1-B6 ainda não têm fonte de
@@ -425,6 +465,10 @@ function renderDashboard() {
         rodape = `<div class="indic-link">Importar planilha →</div>`;
       }
 
+      // Indicador visual de cruzamento PEC ativo
+      const temCondPEC = ind.moduloId && !!condicoesMapPorModulo[ind.moduloId];
+      const condBadge = temCondPEC ? '<div style="font-size:10px;color:#34D399;margin-top:4px;font-weight:600">🔗 Cruzamento PEC ativo</div>' : '';
+
       html += `<div class="indic-card${clicavel ? ' clickable' : ''}"${onclick} title="${esc(ind.desc)}">
         <div class="indic-card-top">
           <span class="indic-code">${ind.codigo}</span>
@@ -433,6 +477,7 @@ function renderDashboard() {
         ${valorHtml}
         <div class="indic-name">${ind.nome}</div>
         <div class="indic-desc">${ind.desc}</div>
+        ${condBadge}
         ${barraHtml}
         ${rodape}
       </div>`;
@@ -491,6 +536,9 @@ let moduloAtivo = null;
 let rawVinc = null;                 // mapa CPF -> cadastro vinculado (compartilhado)
 let rawSiapsPorModulo = {};         // { c2: [...], c4: [...], ... }
 let resultadosPorModulo = {};       // { c2: [merged...], ... } já processado
+let rawCondicoesPorTema = {};       // { hipertensao: [rows...] }
+let condicoesMapPorModulo = {};     // { c5: { cpf_norm: row, ... }, ... }
+let statusCondicoes = {};           // { hipertensao: '✅ 120 registros' }
 let merged   = [];                  // dados do módulo aberto no momento (referência)
 let filtered = [];
 let sortCol  = null;
@@ -584,6 +632,7 @@ function parseFile(file, tipo) {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
       if (tipo === 'vinc') parseVinc_xlsx(raw, file.name);
+      else if (tipo.startsWith('cond_')) parseCondicoesPEC(raw, file.name);
       else parseSiaps(raw, file.name, tipo);
     };
     reader.readAsArrayBuffer(file);
@@ -603,6 +652,7 @@ function parseFile(file, tipo) {
       }
       const res = Papa.parse(text, { delimiter: sep, quoteChar: '"', skipEmptyLines: false });
       if (tipo === 'vinc') parseVinc_csv(res.data, file.name);
+      else if (tipo.startsWith('cond_')) parseCondicoesPEC(res.data, file.name);
       else parseSiaps(res.data, file.name, tipo);
     };
     reader.readAsArrayBuffer(file);
@@ -692,6 +742,103 @@ function buildVincMap(arr) {
   return map;
 }
 
+// ─────────────────────────────────────────────
+//  PARSER — CONDIÇÕES DE SAÚDE (e-SUS PEC)
+//  Formato: CSV com bloco de metadados institucional nas primeiras ~24 linhas,
+//  cabeçalho de colunas na linha que contém 'CPF' e 'Nome', dados a partir da seguinte.
+//  A condição é identificada pelo metadado "Lista temática" no bloco de cabeçalho.
+// ─────────────────────────────────────────────
+function parseCondicoesPEC(rows, nomeArquivo) {
+  // 1. Detectar condição via metadado "Lista temática"
+  let temaDetectado = null;
+  for (let i = 0; i < Math.min(30, rows.length); i++) {
+    const linha = Array.isArray(rows[i]) ? rows[i].join(';') : String(rows[i]);
+    if (linha.includes('Lista temática')) {
+      // Formato: "Lista temática;Hipertensão;..." ou ["Lista temática","Hipertensão",...]
+      const partes = Array.isArray(rows[i]) ? rows[i] : linha.split(';');
+      for (let p = 0; p < partes.length - 1; p++) {
+        if (String(partes[p]).trim().includes('Lista temática')) {
+          temaDetectado = String(partes[p + 1]).trim();
+          break;
+        }
+      }
+      if (temaDetectado) break;
+    }
+  }
+  if (!temaDetectado) {
+    alert('Não encontrei o metadado "Lista temática" no arquivo.\nVerifique se é um export válido de Acompanhamento de Condições de Saúde.');
+    return;
+  }
+
+  // 2. Mapear tema → chave em CONDICOES_PEC
+  const chave = Object.keys(CONDICOES_PEC).find(k =>
+    CONDICOES_PEC[k].tema.toLowerCase() === temaDetectado.toLowerCase()
+  );
+  if (!chave) {
+    alert(`Tema "${temaDetectado}" não reconhecido.\nTemas suportados: ${Object.values(CONDICOES_PEC).map(c => c.tema).join(', ')}`);
+    return;
+  }
+  const cfg = CONDICOES_PEC[chave];
+
+  // 3. Localizar linha de cabeçalho (contém 'CPF' e 'Nome')
+  let headerIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!Array.isArray(row)) continue;
+    const textos = row.map(c => String(c).trim());
+    if (textos.includes('CPF') && textos.includes('Nome')) { headerIdx = i; break; }
+  }
+  if (headerIdx < 0) {
+    alert('Não encontrei a linha de cabeçalho (com "CPF" e "Nome") no arquivo de condições.');
+    return;
+  }
+
+  // 4. Extrair dados
+  const headers = rows[headerIdx].map(h => String(h).trim());
+  const data = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => c === '' || c === null || c === undefined)) continue;
+    const obj = {};
+    headers.forEach((h, j) => { obj[h] = row[j] !== undefined ? String(row[j]).trim() : ''; });
+
+    const cpfRaw = obj['CPF'] || obj['CNS'] || '';
+    obj['_cpf_norm'] = normCPF(cpfRaw);
+    if (!obj['_cpf_norm']) continue;
+
+    // Campos normalizados para uso no merge
+    obj['_nome']            = obj['Nome'] || '';
+    obj['_nascimento']      = obj['Data de nascimento'] || '';
+    obj['_idade']           = parseInt(obj['Idade']) || null;
+    obj['_sexo']            = obj['Sexo'] || '';
+    obj['_microarea']       = obj['Microárea'] || '';
+    obj['_telefone']        = obj['Telefone celular'] || obj['Telefone residencial'] || obj['Telefone de contato'] || '';
+    obj['_meses_atend_med'] = parseInt(obj['Meses desde o último atendimento médico']) || 0;
+    obj['_dias_atend_med']  = parseInt(obj['Dias desde o último atendimento médico']) || 0;
+    obj['_ultima_pa']       = obj['Última medição de pressão arterial'] || '';
+    obj['_data_ultima_pa']  = obj['Data da última medição de pressão arterial'] || '';
+    obj['_qtd_visitas']     = parseInt(obj['Quantidade de visitas domiciliares']) || 0;
+    obj['_qtd_consultas']   = parseInt(obj['Quantidade de consultas']) || 0;
+    obj['_incluido_problemas'] = (obj['Incluído na lista de problemas e condições'] || '').trim();
+
+    data.push(obj);
+  }
+
+  // 5. Armazenar
+  rawCondicoesPorTema[chave] = data;
+
+  // 6. Construir mapa CPF→row para o módulo correspondente
+  const modId = cfg.moduloId;
+  if (!condicoesMapPorModulo[modId]) condicoesMapPorModulo[modId] = {};
+  data.forEach(r => { condicoesMapPorModulo[modId][r['_cpf_norm']] = r; });
+
+  // 7. Atualizar status UI
+  statusCondicoes[chave] = `✅ ${data.length} registros`;
+  setStatus('cond_' + chave, `✅ ${data.length} registros`, nomeArquivo);
+
+  aoImportar('cond_' + chave);
+}
+
 function setStatus(tipo, msg, nome) {
   statusImport[tipo] = msg;
   // atualiza o card da tela de importação ('card-…') e o do modal ('m-card-…')
@@ -734,10 +881,24 @@ const HTML_CARDS_INDICADORES = prefixo => Object.keys(MODULOS).map(id =>
   htmlUploadBox(prefixo, id, MODULOS[id].titulo, 'Lista Nominal Qualidade · SIAPS', '.xlsx,.xls,.csv')
 ).join('');
 
+function HTML_CARDS_CONDICOES(prefixo) {
+  const ativos = Object.entries(CONDICOES_PEC).map(([key, cfg]) =>
+    htmlUploadBox(prefixo, 'cond_' + key, cfg.label, 'Condições de Saúde · e-SUS PEC', '.csv')
+  ).join('');
+  const emBreve = CONDICOES_EM_BREVE.map(item => `
+    <div class="upload-box upload-box-disabled" id="${prefixo}card-cond_${item.key}">
+      <h4>${item.label}</h4>
+      <p>Em breve</p>
+      <div class="status" id="${prefixo}status-cond_${item.key}"></div>
+    </div>`).join('');
+  return ativos + emBreve;
+}
+
 function montarTelaUpload() {
   const alvo = document.getElementById('upload-indicadores');
-  if (!alvo) return;
-  alvo.innerHTML = HTML_CARDS_INDICADORES('');
+  if (alvo) alvo.innerHTML = HTML_CARDS_INDICADORES('');
+  const alvoCond = document.getElementById('upload-condicoes');
+  if (alvoCond) alvoCond.innerHTML = HTML_CARDS_CONDICOES('');
 
   const cardVinc = document.getElementById('card-vinc');
   if (cardVinc) cardVinc.classList.remove('loaded', 'dragover');
@@ -748,15 +909,59 @@ function montarTelaUpload() {
 }
 
 // Cruza a lista nominal SIAPS de um módulo com os Cidadãos Vinculados
+// e enriquece com dados de condições PEC quando disponíveis
 function processarModulo(id) {
   const cfg   = MODULOS[id];
   const vinc  = rawVinc || {};
-  return (rawSiapsPorModulo[id] || []).map(s => processarLinha(id, cfg, s, vinc[s['_cpf_norm']] || {}));
+  const condMap = condicoesMapPorModulo[id] || {};
+  const limiteMeses = LIMITE_ABANDONO_MESES[id] || 12; // fallback padrão
+  return (rawSiapsPorModulo[id] || []).map(s => {
+    const cpfNorm = s['_cpf_norm'];
+    const cond = condMap[cpfNorm] || null;
+    let linha = processarLinha(id, cfg, s, vinc[cpfNorm] || {}, cond);
+    // Aplicar limiar de abandono ao campo cond_situacao
+    if (linha.cond_situacao === 'ok' && linha.meses_sem_atendimento !== null && linha.meses_sem_atendimento > limiteMeses) {
+      linha.cond_situacao = 'abandono';
+    }
+    return linha;
+  });
+}
+
+// Pessoas com condição ativa no PEC que NÃO constam na lista SIAPS do módulo
+function encontrarFaltantesNoSIAPS(moduloId) {
+  const condMap = condicoesMapPorModulo[moduloId] || {};
+  const siapsCPFs = new Set((rawSiapsPorModulo[moduloId] || []).map(s => s['_cpf_norm']));
+  const vinc = rawVinc || {};
+  const faltantes = [];
+  Object.values(condMap).forEach(c => {
+    if (c._incluido_problemas !== 'Sim') return; // só ativos
+    if (siapsCPFs.has(c._cpf_norm)) return;      // já está no SIAPS
+    const v = vinc[c._cpf_norm] || {};
+    faltantes.push({
+      cpf_orig: '', cpf_norm: c._cpf_norm,
+      nome: v['Nome'] || c._nome || '',
+      microarea: v['Microárea'] || c._microarea || '',
+      endereco: v['Endereço'] || '',
+      telefone: v['Telefone celular'] || v['Telefone residencial'] || c._telefone || '',
+      nascimento: c._nascimento || '', idade: c._idade || null,
+      sexo: c._sexo || '', cnes: '', ine: '',
+      sem_cadastro: !v['Nome'] && !c._nome,
+      cond_encontrado: true, cond_ativa: true,
+      meses_sem_atendimento: c._meses_atend_med || 0,
+      cond_situacao: 'faltante_siaps',
+      situacao: 'faltante_siaps', pontos: 0, score: 0,
+    });
+  });
+  return faltantes;
 }
 
 function importarTudo() {
   Object.keys(rawSiapsPorModulo).forEach(id => {
     resultadosPorModulo[id] = processarModulo(id);
+    // Adicionar faltantes no SIAPS quando há dados de condições para este módulo
+    if (condicoesMapPorModulo[id]) {
+      resultadosPorModulo[id] = resultadosPorModulo[id].concat(encontrarFaltantesNoSIAPS(id));
+    }
   });
   document.getElementById('tela-upload').style.display   = 'none';
   document.getElementById('tela-inicial').style.display  = 'flex';
@@ -772,6 +977,8 @@ function abrirImportacao() {
   document.getElementById('modal-upload-vinc').innerHTML =
     htmlUploadBox('m-', 'vinc', 'Cidadãos Vinculados', '.csv ou .xlsx · e-SUS PEC', '.csv,.xlsx');
   document.getElementById('modal-upload-indicadores').innerHTML = HTML_CARDS_INDICADORES('m-');
+  const alvoCondModal = document.getElementById('modal-upload-condicoes');
+  if (alvoCondModal) alvoCondModal.innerHTML = HTML_CARDS_CONDICOES('m-');
   document.getElementById('modal-importar').style.display = 'flex';
 }
 
@@ -786,8 +993,13 @@ function fecharImportacao(e) {
 function processarImportacaoIncremental(tipo) {
   if (!rawVinc) return;
   // trocar os Cidadãos Vinculados muda nome/microárea de todos os módulos
-  const ids = tipo === 'vinc' ? Object.keys(rawSiapsPorModulo) : [tipo];
-  ids.forEach(id => { resultadosPorModulo[id] = processarModulo(id); });
+  const ids = tipo === 'vinc' ? Object.keys(rawSiapsPorModulo) : (tipo.startsWith('cond_') ? Object.keys(condicoesMapPorModulo) : [tipo]);
+  ids.forEach(id => {
+    resultadosPorModulo[id] = processarModulo(id);
+    if (condicoesMapPorModulo[id]) {
+      resultadosPorModulo[id] = resultadosPorModulo[id].concat(encontrarFaltantesNoSIAPS(id));
+    }
+  });
 
   const noModulo = document.getElementById('tela-modulo').style.display !== 'none';
 
@@ -797,7 +1009,9 @@ function processarImportacaoIncremental(tipo) {
   atualizarSidebarNav(noModulo ? moduloAtivo : 'inicial');
 
   // no módulo aberto: atualiza os dados mantendo busca, filtros, ordem e aba
-  if (noModulo && moduloAtivo && (tipo === 'vinc' || tipo === moduloAtivo) && resultadosPorModulo[moduloAtivo]) {
+  // Também atualiza quando uma condição PEC é importada (tipo.startsWith('cond_'))
+  const condAfetaModulo = tipo.startsWith('cond_') && condicoesMapPorModulo[moduloAtivo];
+  if (noModulo && moduloAtivo && (tipo === 'vinc' || tipo === moduloAtivo || condAfetaModulo) && resultadosPorModulo[moduloAtivo]) {
     merged = resultadosPorModulo[moduloAtivo];
     renderFonteDados(moduloAtivo);
     preencherMicroareas();
@@ -809,14 +1023,27 @@ function processarImportacaoIncremental(tipo) {
 // ─────────────────────────────────────────────
 //  CRUZAMENTO — regra padrão (colunas A, B, C... com "X")
 // ─────────────────────────────────────────────
-function processarLinha(moduloId, cfg, s, v) {
-  if (moduloId === 'c7')   return processarLinhaC7(s, v);
-  if (moduloId === 'cvat') return processarLinhaCVAT(s, v);
-  return processarLinhaPadrao(cfg, s, v);
+function processarLinha(moduloId, cfg, s, v, cond) {
+  if (moduloId === 'c7')   return processarLinhaC7(s, v, cond);
+  if (moduloId === 'cvat') return processarLinhaCVAT(s, v, cond);
+  return processarLinhaPadrao(cfg, s, v, cond);
 }
 
-function dadosBase(s, v) {
+function dadosBase(s, v, cond) {
   const nascimento = s['Nascimento'] || v['Data de Nascimento'] || v['Data de nascimento'] || '';
+  // Enriquecimento com dados de condições PEC (opcional)
+  const cond_encontrado = !!cond;
+  const cond_ativa = cond ? cond._incluido_problemas === 'Sim' : null;
+  const meses_sem_atendimento = cond ? (parseInt(cond._meses_atend_med) || 0) : null;
+  let cond_situacao = null;
+  if (!cond) {
+    cond_situacao = 'nao_encontrado';
+  } else if (cond._incluido_problemas !== 'Sim') {
+    cond_situacao = 'inativa';
+  } else {
+    // Verificar abandono baseado no limiar do módulo (será ajustado pelo caller se necessário)
+    cond_situacao = 'ok';
+  }
   return {
     cpf_orig:  s['CPF'] || s['CNS'] || '',
     cpf_norm:  s['_cpf_norm'],
@@ -830,6 +1057,10 @@ function dadosBase(s, v) {
     cnes:      s['CNES']        || '',
     ine:       s['INE']         || '',
     sem_cadastro: !v['Nome'],
+    cond_encontrado,
+    cond_ativa,
+    meses_sem_atendimento,
+    cond_situacao,
   };
 }
 
@@ -840,7 +1071,7 @@ function processarLinhaPadrao(cfg, s, v) {
   const pontos = cfg.criterios.reduce((soma, c) => soma + (crits[c.k] ? c.pts : 0), 0);
   const situacao = pontos === 100 ? 'completo' : 'pendente';
   return {
-    ...dadosBase(s, v),
+    ...dadosBase(s, v, cond),
     ...crits,
     NM: s['NM'] === 'X',
     DN: s['DN'] === 'X',
@@ -851,7 +1082,7 @@ function processarLinhaPadrao(cfg, s, v) {
 // C7 — cada critério tem numerador/denominador próprios (elegibilidade
 // por faixa etária); a pontuação é normalizada só entre os critérios em
 // que a pessoa é elegível.
-function processarLinhaC7(s, v) {
+function processarLinhaC7(s, v, cond) {
   const criterios = MODULOS.c7.criterios;
   const crits = {};
   let pontosObtidos = 0, pontosPossiveis = 0;
@@ -869,7 +1100,7 @@ function processarLinhaC7(s, v) {
   const score  = Object.values(crits).filter(Boolean).length;
   const situacao = pontos === 100 ? 'completo' : 'pendente';
   return {
-    ...dadosBase(s, v),
+    ...dadosBase(s, v, cond),
     ...crits,
     score, pontos, situacao,
   };
@@ -877,7 +1108,7 @@ function processarLinhaC7(s, v) {
 
 // CVAT — Cadastro (até 3 pts) + Acompanhamento (até 7 pts), normalizado
 // para a escala de 0-100 usada no resto do sistema.
-function processarLinhaCVAT(s, v) {
+function processarLinhaCVAT(s, v, cond) {
   const cadastroCompleto = s['Cadastro Individual e Cadastro Domiciliar'] === 'X';
   const cadastroParcial  = s['Cadastro Individual'] === 'X';
   const cadastroPts = cadastroCompleto ? 3 : (cadastroParcial ? 1.5 : 0);
@@ -898,7 +1129,7 @@ function processarLinhaCVAT(s, v) {
     s['Pessoa Idosa beneficiária BPC ou PBF'] === 'X';
 
   return {
-    ...dadosBase(s, v),
+    ...dadosBase(s, v, cond),
     A: cadastroPts >= 3,
     B: acompanhado,
     cadastroPts, acompanhamentoPts, vulneravel,
@@ -921,6 +1152,29 @@ function atualizarStats() {
   document.getElementById('st-pend-sub').textContent = pct(pend,total) + '% do total';
   document.getElementById('st-sem').textContent      = sem;
   document.getElementById('st-sem-sub').textContent  = pct(sem,total) + '% do total';
+
+  // Stats de condição PEC (só aparecem quando há dados de condições para o módulo ativo)
+  const temCond = !!condicoesMapPorModulo[moduloAtivo];
+  const statsCondEl = document.getElementById('stats-condicao');
+  if (statsCondEl) {
+    if (!temCond) {
+      statsCondEl.style.display = 'none';
+    } else {
+      statsCondEl.style.display = '';
+      const naoEncontrado = merged.filter(r => r.cond_situacao === 'nao_encontrado').length;
+      const inativa       = merged.filter(r => r.cond_situacao === 'inativa').length;
+      const abandono      = merged.filter(r => r.cond_situacao === 'abandono').length;
+      const faltante      = merged.filter(r => r.cond_situacao === 'faltante_siaps').length;
+      document.getElementById('st-cond-nao').textContent     = naoEncontrado;
+      document.getElementById('st-cond-nao-sub').textContent = pct(naoEncontrado,total) + '%';
+      document.getElementById('st-cond-inativa').textContent     = inativa;
+      document.getElementById('st-cond-inativa-sub').textContent = pct(inativa,total) + '%';
+      document.getElementById('st-cond-abandono').textContent     = abandono;
+      document.getElementById('st-cond-abandono-sub').textContent = pct(abandono,total) + '%';
+      document.getElementById('st-cond-faltante').textContent     = faltante;
+      document.getElementById('st-cond-faltante-sub').textContent = faltante + ' pessoas';
+    }
+  }
 }
 
 function pct(a, b) { return b ? Math.round(a/b*100) : 0; }
@@ -933,6 +1187,8 @@ function aplicarFiltroRapido(val) {
   document.getElementById('fil-criterio').value = '';
   document.getElementById('fil-microarea').value = '';
   document.getElementById('busca').value = '';
+  const filCond = document.getElementById('fil-condicao');
+  if (filCond) filCond.value = '';
   document.querySelectorAll('.stat-mini').forEach(el => el.classList.remove('active-filter'));
   const map = {'':'cor-total','sem':'cor-sem','completo':'cor-ok','pendente':'cor-pend'};
   if (map[val]) {
@@ -941,11 +1197,24 @@ function aplicarFiltroRapido(val) {
   filtrar();
 }
 
+function aplicarFiltroRapidoCondicao(tipo) {
+  const filCond = document.getElementById('fil-condicao');
+  if (!filCond) return;
+  filCond.value = tipo;
+  document.getElementById('fil-situacao').value = '';
+  document.getElementById('fil-criterio').value = '';
+  document.getElementById('fil-microarea').value = '';
+  document.getElementById('busca').value = '';
+  document.querySelectorAll('.stat-mini').forEach(el => el.classList.remove('active-filter'));
+  filtrar();
+}
+
 function filtrar() {
   const busca    = document.getElementById('busca').value.toLowerCase().trim();
   const situacao = document.getElementById('fil-situacao').value;
   const criterio = document.getElementById('fil-criterio').value;
   const microarea= document.getElementById('fil-microarea').value;
+  const condicao = document.getElementById('fil-condicao')?.value || '';
 
   filtered = merged.filter(r => {
     if (busca && !r.nome.toLowerCase().includes(busca) && !r.cpf_orig.includes(busca)) return false;
@@ -954,6 +1223,12 @@ function filtrar() {
     if (situacao === 'sem'      && !r.sem_cadastro)           return false;
     if (criterio && r[criterio] !== false) return false;
     if (microarea && r.microarea !== microarea) return false;
+    // Filtro de condição PEC
+    if (condicao === 'ok' && r.cond_situacao !== 'ok') return false;
+    if (condicao === 'inativa' && r.cond_situacao !== 'inativa') return false;
+    if (condicao === 'nao_encontrado' && r.cond_situacao !== 'nao_encontrado') return false;
+    if (condicao === 'abandono' && r.cond_situacao !== 'abandono') return false;
+    if (condicao === 'faltante_siaps' && r.cond_situacao !== 'faltante_siaps') return false;
     return true;
   });
 
@@ -1022,6 +1297,7 @@ function renderTable() {
     ${critHeaders}
     <th class="sortable" onclick="setSort('pontos')" style="min-width:90px">Pontuação${arr('pontos')}</th>
     <th class="sortable" onclick="setSort('situacao')" style="min-width:120px">Situação${arr('situacao')}</th>
+    ${condicoesMapPorModulo[moduloAtivo] ? '<th style="min-width:100px">PEC</th><th style="min-width:90px">Últ. Atend.</th>' : ''}
   </tr></thead><tbody>`;
 
   slice.forEach(r => {
@@ -1057,6 +1333,19 @@ function renderTable() {
       ${critCells}
       <td class="center">${pontosHtml}</td>
       <td>${tagHtml}</td>
+      ${condicoesMapPorModulo[moduloAtivo] ? (() => {
+        const pecBadge = r.cond_situacao === 'ok' ? '<span class="badge-cond-ok">Ativa</span>'
+          : r.cond_situacao === 'inativa' ? '<span class="badge-cond-inativa">Inativa</span>'
+          : r.cond_situacao === 'abandono' ? '<span class="badge-cond-abandono">Abandono</span>'
+          : r.cond_situacao === 'faltante_siaps' ? '<span class="badge-cond-faltante">Faltante SIAPS</span>'
+          : '<span class="badge-cond-nao">Não encontrada</span>';
+        const mesesTxt = r.meses_sem_atendimento !== null && r.meses_sem_atendimento !== undefined
+          ? (r.meses_sem_atendimento > 6 ? `<span style="color:var(--vermelho)">${r.meses_sem_atendimento}m</span>`
+            : r.meses_sem_atendimento > 3 ? `<span style="color:#D97706">${r.meses_sem_atendimento}m</span>`
+            : `<span style="color:var(--verde)">${r.meses_sem_atendimento}m</span>`)
+          : '—';
+        return `<td class="center">${pecBadge}</td><td class="center">${mesesTxt}</td>`;
+      })() : ''}
     </tr>`;
   });
 
@@ -1178,6 +1467,15 @@ function exportar() {
     'Não vinculado à ESF': r.sem_cadastro ? 'Sim' : 'Não',
     'CNES':              r.cnes,
     'INE':               r.ine,
+    ...(condicoesMapPorModulo[moduloAtivo] ? {
+      'Condição no PEC': r.cond_situacao === 'ok' ? 'Ativa'
+        : r.cond_situacao === 'inativa' ? 'Inativa'
+        : r.cond_situacao === 'abandono' ? 'Abandono'
+        : r.cond_situacao === 'faltante_siaps' ? 'Faltante no SIAPS'
+        : 'Não encontrada',
+      'Meses desde último atendimento': r.meses_sem_atendimento ?? '',
+      'Incluído na lista de problemas': r.cond_ativa === true ? 'Sim' : r.cond_ativa === false ? 'Não' : '',
+    } : {}),
   }));
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();

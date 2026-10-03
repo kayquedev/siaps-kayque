@@ -546,6 +546,17 @@ body {
 .upload-box h4 { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 3px; }
 .upload-box p { font-size: 11px; color: rgba(255,255,255,.4); margin-bottom: 0; }
 .upload-box .status { font-size: 11px; font-weight: 600; color: #34D399; margin-top: 6px; word-break: break-all; }
+.upload-box-disabled {
+  opacity: .4; cursor: not-allowed; pointer-events: none;
+  border-style: solid; border-color: rgba(255,255,255,.08);
+}
+
+/* Badges de condição PEC */
+.badge-cond-ok       { color: var(--verde); font-weight: 700; }
+.badge-cond-inativa  { color: #D97706; font-weight: 700; }
+.badge-cond-nao      { color: var(--vermelho); font-weight: 700; }
+.badge-cond-abandono { color: #C2410C; font-weight: 700; }
+.badge-cond-faltante { color: var(--azul-mid); font-weight: 700; }
 
 .btn-importar {
   background: linear-gradient(135deg, #1565C0, #0B4F8A);
