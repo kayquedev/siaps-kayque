@@ -1064,7 +1064,7 @@ function dadosBase(s, v, cond) {
   };
 }
 
-function processarLinhaPadrao(cfg, s, v) {
+function processarLinhaPadrao(cfg, s, v, cond) {
   const crits = {};
   cfg.criterios.forEach(c => { crits[c.k] = s[c.k] === 'X'; });
   const score  = Object.values(crits).filter(Boolean).length;
