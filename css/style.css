@@ -555,7 +555,6 @@ body {
 .badge-cond-ok       { color: var(--verde); font-weight: 700; }
 .badge-cond-inativa  { color: #D97706; font-weight: 700; }
 .badge-cond-nao      { color: var(--vermelho); font-weight: 700; }
-.badge-cond-abandono { color: #C2410C; font-weight: 700; }
 .badge-cond-faltante { color: var(--azul-mid); font-weight: 700; }
 
 .btn-importar {

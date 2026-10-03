@@ -328,12 +328,6 @@ const CONDICOES_EM_BREVE = [
   { key: 'saude_bucal',  label: 'Saúde Bucal' },
 ];
 
-// Limiar de abandono por módulo (meses sem atendimento médico no PEC)
-const LIMITE_ABANDONO_MESES = {
-  c4: 6, c5: 6,   // Diabetes e Hipertensão: 6 meses
-  c2: 12, c3: 12, c6: 12, c7: 12,  // Demais: 12 meses
-};
-
 // ─────────────────────────────────────────────
 //  DASHBOARD GERAL MUNICIPAL
 //  Só exibe valor de indicador quando há planilha importada
@@ -914,16 +908,10 @@ function processarModulo(id) {
   const cfg   = MODULOS[id];
   const vinc  = rawVinc || {};
   const condMap = condicoesMapPorModulo[id] || {};
-  const limiteMeses = LIMITE_ABANDONO_MESES[id] || 12; // fallback padrão
   return (rawSiapsPorModulo[id] || []).map(s => {
     const cpfNorm = s['_cpf_norm'];
     const cond = condMap[cpfNorm] || null;
-    let linha = processarLinha(id, cfg, s, vinc[cpfNorm] || {}, cond);
-    // Aplicar limiar de abandono ao campo cond_situacao
-    if (linha.cond_situacao === 'ok' && linha.meses_sem_atendimento !== null && linha.meses_sem_atendimento > limiteMeses) {
-      linha.cond_situacao = 'abandono';
-    }
-    return linha;
+    return processarLinha(id, cfg, s, vinc[cpfNorm] || {}, cond);
   });
 }
 
@@ -948,8 +936,8 @@ function encontrarFaltantesNoSIAPS(moduloId) {
       sem_cadastro: !v['Nome'] && !c._nome,
       cond_encontrado: true, cond_ativa: true,
       meses_sem_atendimento: c._meses_atend_med || 0,
-      cond_situacao: 'faltante_siaps',
-      situacao: 'faltante_siaps', pontos: 0, score: 0,
+      cond_situacao: 'somente_pec',
+      situacao: 'somente_pec', pontos: 0, score: 0,
     });
   });
   return faltantes;
@@ -1037,11 +1025,10 @@ function dadosBase(s, v, cond) {
   const meses_sem_atendimento = cond ? (parseInt(cond._meses_atend_med) || 0) : null;
   let cond_situacao = null;
   if (!cond) {
-    cond_situacao = 'nao_encontrado';
+    cond_situacao = 'somente_siaps';
   } else if (cond._incluido_problemas !== 'Sim') {
     cond_situacao = 'inativa';
   } else {
-    // Verificar abandono baseado no limiar do módulo (será ajustado pelo caller se necessário)
     cond_situacao = 'ok';
   }
   return {
@@ -1161,18 +1148,15 @@ function atualizarStats() {
       statsCondEl.style.display = 'none';
     } else {
       statsCondEl.style.display = '';
-      const naoEncontrado = merged.filter(r => r.cond_situacao === 'nao_encontrado').length;
-      const inativa       = merged.filter(r => r.cond_situacao === 'inativa').length;
-      const abandono      = merged.filter(r => r.cond_situacao === 'abandono').length;
-      const faltante      = merged.filter(r => r.cond_situacao === 'faltante_siaps').length;
-      document.getElementById('st-cond-nao').textContent     = naoEncontrado;
-      document.getElementById('st-cond-nao-sub').textContent = pct(naoEncontrado,total) + '%';
+      const somenteSiaps = merged.filter(r => r.cond_situacao === 'somente_siaps').length;
+      const inativa      = merged.filter(r => r.cond_situacao === 'inativa').length;
+      const somentePec   = merged.filter(r => r.cond_situacao === 'somente_pec').length;
+      document.getElementById('st-cond-siaps').textContent     = somenteSiaps;
+      document.getElementById('st-cond-siaps-sub').textContent = pct(somenteSiaps,total) + '%';
       document.getElementById('st-cond-inativa').textContent     = inativa;
       document.getElementById('st-cond-inativa-sub').textContent = pct(inativa,total) + '%';
-      document.getElementById('st-cond-abandono').textContent     = abandono;
-      document.getElementById('st-cond-abandono-sub').textContent = pct(abandono,total) + '%';
-      document.getElementById('st-cond-faltante').textContent     = faltante;
-      document.getElementById('st-cond-faltante-sub').textContent = faltante + ' pessoas';
+      document.getElementById('st-cond-pec').textContent     = somentePec;
+      document.getElementById('st-cond-pec-sub').textContent = somentePec + ' pessoas';
     }
   }
 }
@@ -1226,9 +1210,8 @@ function filtrar() {
     // Filtro de condição PEC
     if (condicao === 'ok' && r.cond_situacao !== 'ok') return false;
     if (condicao === 'inativa' && r.cond_situacao !== 'inativa') return false;
-    if (condicao === 'nao_encontrado' && r.cond_situacao !== 'nao_encontrado') return false;
-    if (condicao === 'abandono' && r.cond_situacao !== 'abandono') return false;
-    if (condicao === 'faltante_siaps' && r.cond_situacao !== 'faltante_siaps') return false;
+    if (condicao === 'somente_siaps' && r.cond_situacao !== 'somente_siaps') return false;
+    if (condicao === 'somente_pec' && r.cond_situacao !== 'somente_pec') return false;
     return true;
   });
 
@@ -1336,9 +1319,9 @@ function renderTable() {
       ${condicoesMapPorModulo[moduloAtivo] ? (() => {
         const pecBadge = r.cond_situacao === 'ok' ? '<span class="badge-cond-ok">Ativa</span>'
           : r.cond_situacao === 'inativa' ? '<span class="badge-cond-inativa">Inativa</span>'
-          : r.cond_situacao === 'abandono' ? '<span class="badge-cond-abandono">Abandono</span>'
-          : r.cond_situacao === 'faltante_siaps' ? '<span class="badge-cond-faltante">Faltante SIAPS</span>'
-          : '<span class="badge-cond-nao">Não encontrada</span>';
+          : r.cond_situacao === 'somente_pec' ? '<span class="badge-cond-faltante">Somente PEC</span>'
+          : r.cond_situacao === 'somente_siaps' ? '<span class="badge-cond-nao">Somente SIAPS</span>'
+          : '<span class="badge-cond-nao">—</span>';
         const mesesTxt = r.meses_sem_atendimento !== null && r.meses_sem_atendimento !== undefined
           ? (r.meses_sem_atendimento > 6 ? `<span style="color:var(--vermelho)">${r.meses_sem_atendimento}m</span>`
             : r.meses_sem_atendimento > 3 ? `<span style="color:#D97706">${r.meses_sem_atendimento}m</span>`
@@ -1470,8 +1453,7 @@ function exportar() {
     ...(condicoesMapPorModulo[moduloAtivo] ? {
       'Condição no PEC': r.cond_situacao === 'ok' ? 'Ativa'
         : r.cond_situacao === 'inativa' ? 'Inativa'
-        : r.cond_situacao === 'abandono' ? 'Abandono'
-        : r.cond_situacao === 'faltante_siaps' ? 'Faltante no SIAPS'
+        : r.cond_situacao === 'somente_pec' ? 'Somente PEC'
         : 'Não encontrada',
       'Meses desde último atendimento': r.meses_sem_atendimento ?? '',
       'Incluído na lista de problemas': r.cond_ativa === true ? 'Sim' : r.cond_ativa === false ? 'Não' : '',
