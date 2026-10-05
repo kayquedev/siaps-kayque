@@ -767,7 +767,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* Barra de ferramentas da tabela — busca + filtros no cabeçalho */
@@ -779,6 +779,9 @@ body {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .search-box {
   display: flex; align-items: center; gap: 8px;
