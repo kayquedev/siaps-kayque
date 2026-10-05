@@ -103,6 +103,7 @@ function configurarModulo(id) {
   preencherMicroareas();
 
   atualizarStats();
+  renderModuloCharts();
 
   document.getElementById('sidebar-stats').style.display   = '';
   document.getElementById('btn-exportar').disabled = false;
@@ -1019,6 +1020,7 @@ function processarImportacaoIncremental(tipo) {
     renderFonteDados(moduloAtivo);
     preencherMicroareas();
     atualizarStats();
+    renderModuloCharts();
     filtrar();
   }
 }
@@ -1139,6 +1141,96 @@ function processarLinhaCVAT(s, v, cond) {
     score: (cadastroPts > 0 ? 1 : 0) + (acompanhado ? 1 : 0),
     pontos, situacao,
   };
+}
+
+// ─────────────────────────────────────────────
+//  CARDS VISUAIS DO MÓDULO (gráficos no topo)
+// ─────────────────────────────────────────────
+function renderModuloCharts() {
+  const alvo = document.getElementById('modulo-charts');
+  if (!alvo || !merged.length) { if (alvo) alvo.innerHTML = ''; return; }
+
+  const total = merged.length;
+  const completo = merged.filter(r => r.situacao === 'completo').length;
+  const pendente = merged.filter(r => r.situacao === 'pendente').length;
+  const semCad   = merged.filter(r => r.sem_cadastro).length;
+
+  // Contagens de condição PEC
+  const temCond = !!condicoesMapPorModulo[moduloAtivo];
+  const somenteSiaps = temCond ? merged.filter(r => r.cond_situacao === 'somente_siaps').length : 0;
+  const somentePec   = temCond ? merged.filter(r => r.cond_situacao === 'somente_pec').length : 0;
+  const condAtiva    = temCond ? merged.filter(r => r.cond_situacao === 'ok').length : 0;
+  const condInativa  = temCond ? merged.filter(r => r.cond_situacao === 'inativa').length : 0;
+
+  let html = '';
+
+  // ── Card 1: KPIs principais ──
+  html += `<div class="chart-card">
+    <div class="chart-card-title">Resumo Geral</div>
+    <div class="chart-kpis">
+      <div class="chart-kpi cor-azul"><div class="val">${total}</div><div class="lbl">Total</div></div>
+      <div class="chart-kpi cor-verde"><div class="val">${completo}</div><div class="lbl">Completos</div></div>
+      <div class="chart-kpi cor-vermelho"><div class="val">${pendente}</div><div class="lbl">Pendentes</div></div>
+      <div class="chart-kpi cor-ambar"><div class="val">${semCad}</div><div class="lbl">Sem Cadastro</div></div>
+    </div>
+  </div>`;
+
+  // ── Card 2: Donut Completo vs Pendente ──
+  const pctOk = total ? Math.round(completo / total * 100) : 0;
+  const pctPend = total ? Math.round(pendente / total * 100) : 0;
+  html += `<div class="chart-card">
+    <div class="chart-card-title">Situação dos Registros</div>
+    <div class="chart-donut-wrap">
+      <div class="chart-donut" style="--pct-ok:${pctOk}%;--pct-total:${pctOk + pctPend}%"></div>
+      <div class="chart-donut-center"><span class="num">${pctOk}%</span><span class="lbl">Completos</span></div>
+      <div class="chart-donut-legend">
+        <div class="chart-legend-item"><span class="chart-legend-dot cor-ok"></span>Completos<span class="chart-legend-val">${completo}</span></div>
+        <div class="chart-legend-item"><span class="chart-legend-dot cor-pend"></span>Pendentes<span class="chart-legend-val">${pendente}</span></div>
+        ${semCad ? `<div class="chart-legend-item"><span class="chart-legend-dot cor-sem"></span>Sem cadastro<span class="chart-legend-val">${semCad}</span></div>` : ''}
+      </div>
+    </div>
+  </div>`;
+
+  // ── Card 3: Condição PEC (barras horizontais) ──
+  if (temCond) {
+    const maxCond = Math.max(somenteSiaps, somentePec, condAtiva, condInativa, 1);
+    const barRow = (label, val, cls) => `<div class="chart-bar-row">
+      <span class="chart-bar-label">${label}</span>
+      <div class="chart-bar-track"><div class="chart-bar-fill ${cls}" style="width:${Math.round(val/maxCond*100)}%"></div></div>
+      <span class="chart-bar-value">${val}</span>
+    </div>`;
+    html += `<div class="chart-card">
+      <div class="chart-card-title">Condição no PEC</div>
+      <div class="chart-bars">
+        ${barRow('Condição Ativa', condAtiva, 'cor-ativa')}
+        ${barRow('Condição Inativa', condInativa, 'cor-inativa')}
+        ${barRow('Somente SIAPS', somenteSiaps, 'cor-somente-siaps')}
+        ${barRow('Somente PEC', somentePec, 'cor-somente-pec')}
+      </div>
+    </div>`;
+  }
+
+  // ── Card 4: Adesão por Critério (barras horizontais) ──
+  const cfgC = MODULOS[moduloAtivo];
+  if (cfgC && cfgC.criterios.length) {
+    const critRows = cfgC.criterios.map(c => {
+      const count = merged.filter(r => r[c.k]).length;
+      return { label: `${c.k} — ${c.desc.substring(0, 28)}`, count, pts: c.pts };
+    });
+    const maxCrit = Math.max(...critRows.map(c => c.count), 1);
+    html += `<div class="chart-card">
+      <div class="chart-card-title">Adesão por Critério</div>
+      <div class="chart-bars">
+        ${critRows.map(c => `<div class="chart-bar-row">
+          <span class="chart-bar-label" title="${esc(c.label)}">${c.label}</span>
+          <div class="chart-bar-track"><div class="chart-bar-fill cor-completo" style="width:${Math.round(c.count/maxCrit*100)}%"></div></div>
+          <span class="chart-bar-value">${c.count}/${total}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  alvo.innerHTML = html;
 }
 
 function atualizarStats() {
