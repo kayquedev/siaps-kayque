@@ -396,7 +396,6 @@ function renderSidebarNav(ativo) {
       <span class="app-nav-icon">${icone}</span><span>${label}</span>
      </div>`;
   let html = '<div class="app-nav">';
-  html += item('📊', 'Painel de Indicadores', ativo === 'inicial', 'voltarInicio()');
   modulosComDado.forEach(id => {
     html += item(MODULOS[id].icone || '📋', MODULOS[id].titulo.split(' — ')[0], ativo === id, `abrirModulo('${id}')`);
   });
@@ -1171,7 +1170,7 @@ function renderModuloCharts() {
       <div class="chart-kpi cor-azul"><div class="val">${total}</div><div class="lbl">Total</div></div>
       <div class="chart-kpi cor-verde"><div class="val">${completo}</div><div class="lbl">Completos</div></div>
       <div class="chart-kpi cor-vermelho"><div class="val">${pendente}</div><div class="lbl">Pendentes</div></div>
-      <div class="chart-kpi cor-ambar"><div class="val">${semCad}</div><div class="lbl">Sem Cadastro</div></div>
+      <div class="chart-kpi cor-ambar"><div class="val">${semCad}</div><div class="lbl">Não Vinculado ESF</div></div>
     </div>
   </div>`;
 
@@ -1191,26 +1190,7 @@ function renderModuloCharts() {
     </div>
   </div>`;
 
-  // ── Card 3: Condição PEC (barras horizontais) ──
-  if (temCond) {
-    const maxCond = Math.max(somenteSiaps, somentePec, condAtiva, condInativa, 1);
-    const barRow = (label, val, cls) => `<div class="chart-bar-row">
-      <span class="chart-bar-label">${label}</span>
-      <div class="chart-bar-track"><div class="chart-bar-fill ${cls}" style="width:${Math.round(val/maxCond*100)}%"></div></div>
-      <span class="chart-bar-value">${val}</span>
-    </div>`;
-    html += `<div class="chart-card">
-      <div class="chart-card-title">Condição no PEC</div>
-      <div class="chart-bars">
-        ${barRow('Condição Ativa', condAtiva, 'cor-ativa')}
-        ${barRow('Condição Inativa', condInativa, 'cor-inativa')}
-        ${barRow('Somente SIAPS', somenteSiaps, 'cor-somente-siaps')}
-        ${barRow('Somente PEC', somentePec, 'cor-somente-pec')}
-      </div>
-    </div>`;
-  }
-
-  // ── Card 4: Adesão por Critério (barras horizontais) ──
+  // ── Card 3: Adesão por Critério (barras horizontais) ──
   const cfgC = MODULOS[moduloAtivo];
   if (cfgC && cfgC.criterios.length) {
     const critRows = cfgC.criterios.map(c => {
