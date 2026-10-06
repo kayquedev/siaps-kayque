@@ -203,42 +203,7 @@
         <div id="fonte-dados" class="fonte-dados"></div>
       </div>
 
-      <!-- Stats -->
-      <div class="sidebar-section" id="sidebar-stats" style="display:none">
-
-        <div class="stat-mini cor-total" onclick="aplicarFiltroRapido('')" title="Ver todos">
-          <div>
-            <div class="stat-mini-label">Total no SIAPS</div>
-            <div class="stat-mini-sub" id="st-total-sub"></div>
-          </div>
-          <div class="stat-mini-val" id="st-total">—</div>
-        </div>
-
-        <div class="stat-mini cor-sem" onclick="aplicarFiltroRapido('sem')" title="Filtrar sem cadastro PEC">
-          <div>
-            <div class="stat-mini-label">Não vinculados à ESF</div>
-            <div class="stat-mini-sub" id="st-sem-sub"></div>
-          </div>
-          <div class="stat-mini-val" id="st-sem">—</div>
-        </div>
-
-        <div class="stat-mini cor-ok" onclick="aplicarFiltroRapido('completo')" title="Filtrar completos">
-          <div>
-            <div class="stat-mini-label">Completos (100 pts)</div>
-            <div class="stat-mini-sub" id="st-ok-sub"></div>
-          </div>
-          <div class="stat-mini-val" id="st-ok">—</div>
-        </div>
-
-        <div class="stat-mini cor-pend" onclick="aplicarFiltroRapido('pendente')" title="Filtrar pendentes">
-          <div>
-            <div class="stat-mini-label">Pendentes (0 a 99 pts)</div>
-            <div class="stat-mini-sub" id="st-pend-sub"></div>
-          </div>
-          <div class="stat-mini-val" id="st-pend">—</div>
-        </div>
-      </div>
-
+      
       <!-- Legenda critérios — preenchida dinamicamente -->
       <div class="sidebar-section">
         <div class="sidebar-label" id="legenda-titulo">Critérios C6</div>

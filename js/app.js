@@ -102,10 +102,8 @@ function configurarModulo(id) {
   document.getElementById('fil-microarea').value = '';
   preencherMicroareas();
 
-  atualizarStats();
   renderModuloCharts();
 
-  document.getElementById('sidebar-stats').style.display   = '';
   document.getElementById('btn-exportar').disabled = false;
   document.getElementById('btn-imprimir').disabled = false;
 
@@ -1018,7 +1016,6 @@ function processarImportacaoIncremental(tipo) {
     merged = resultadosPorModulo[moduloAtivo];
     renderFonteDados(moduloAtivo);
     preencherMicroareas();
-    atualizarStats();
     renderModuloCharts();
     filtrar();
   }
@@ -1213,41 +1210,6 @@ function renderModuloCharts() {
   alvo.innerHTML = html;
 }
 
-function atualizarStats() {
-  const total    = merged.length;
-  const completo = merged.filter(r => r.situacao === 'completo').length;
-  const pend     = merged.filter(r => r.situacao === 'pendente').length;
-  const sem      = merged.filter(r => r.sem_cadastro).length;
-
-  document.getElementById('st-total').textContent    = total;
-  document.getElementById('st-total-sub').textContent = 'elegíveis';
-  document.getElementById('st-ok').textContent       = completo;
-  document.getElementById('st-ok-sub').textContent   = pct(completo,total) + '% do total';
-  document.getElementById('st-pend').textContent     = pend;
-  document.getElementById('st-pend-sub').textContent = pct(pend,total) + '% do total';
-  document.getElementById('st-sem').textContent      = sem;
-  document.getElementById('st-sem-sub').textContent  = pct(sem,total) + '% do total';
-
-  // Stats de condição PEC (só aparecem quando há dados de condições para o módulo ativo)
-  const temCond = !!condicoesMapPorModulo[moduloAtivo];
-  const statsCondEl = document.getElementById('stats-condicao');
-  if (statsCondEl) {
-    if (!temCond) {
-      statsCondEl.style.display = 'none';
-    } else {
-      statsCondEl.style.display = '';
-      const somenteSiaps = merged.filter(r => r.cond_situacao === 'somente_siaps').length;
-      const inativa      = merged.filter(r => r.cond_situacao === 'inativa').length;
-      const somentePec   = merged.filter(r => r.cond_situacao === 'somente_pec').length;
-      document.getElementById('st-cond-siaps').textContent     = somenteSiaps;
-      document.getElementById('st-cond-siaps-sub').textContent = pct(somenteSiaps,total) + '%';
-      document.getElementById('st-cond-inativa').textContent     = inativa;
-      document.getElementById('st-cond-inativa-sub').textContent = pct(inativa,total) + '%';
-      document.getElementById('st-cond-pec').textContent     = somentePec;
-      document.getElementById('st-cond-pec-sub').textContent = somentePec + ' pessoas';
-    }
-  }
-}
 
 function pct(a, b) { return b ? Math.round(a/b*100) : 0; }
 
