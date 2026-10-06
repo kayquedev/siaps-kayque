@@ -1007,6 +1007,8 @@ td.nome-cell .sem { color: var(--muted); font-style: italic; font-size: 12px; }
   border-radius: 12px;
   padding: 18px 20px;
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  position: relative;
 }
 .chart-card-title {
   font-size: 12px;
