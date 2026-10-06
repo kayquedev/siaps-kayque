@@ -894,7 +894,6 @@ body.privacidade #busca { -webkit-text-security: disc; }
 /* Tabela */
 .table-scroll {
   flex: 1;
-  overflow: auto;
 }
 table {
   width: 100%;
