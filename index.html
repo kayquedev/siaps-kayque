@@ -118,15 +118,15 @@
 </div>
 
 <!-- ══════════════════════════════════════════
-     TELA INICIAL (Painel de Indicadores)
+     TELA INICIAL (Brasil 360)
 ══════════════════════════════════════════ -->
 <div id="tela-inicial" style="display:none;flex-direction:column">
 
   <div class="mod-topbar">
     <div class="topbar-icon">📊</div>
     <div class="topbar-title">
-      <span>Painel de Indicadores</span>
-      <small>Brasil 360 · ESF/eAP, eMulti e Saúde Bucal</small>
+      <span>Brasil 360</span>
+      <small>ESF/eAP, eMulti e Saúde Bucal</small>
     </div>
     <div class="topbar-actions">
       <button class="btn-top btn-outline" onclick="reimportar()">↺ Reimportar</button>
@@ -205,7 +205,6 @@
 
       <!-- Stats -->
       <div class="sidebar-section" id="sidebar-stats" style="display:none">
-        <div class="sidebar-label">Painel</div>
 
         <div class="stat-mini cor-total" onclick="aplicarFiltroRapido('')" title="Ver todos">
           <div>
@@ -237,32 +236,6 @@
             <div class="stat-mini-sub" id="st-pend-sub"></div>
           </div>
           <div class="stat-mini-val" id="st-pend">—</div>
-        </div>
-      </div>
-
-      <!-- Stats de Condição PEC (visível apenas quando há dados de condições) -->
-      <div class="stats-row" id="stats-condicao" style="display:none">
-        <div class="sidebar-label">Condição no PEC</div>
-        <div class="stat-mini cor-sem" onclick="aplicarFiltroRapidoCondicao('somente_siaps')" title="Está no SIAPS mas não na lista de condições do PEC">
-          <div>
-            <div class="stat-mini-label">Somente SIAPS</div>
-            <div class="stat-mini-sub" id="st-cond-siaps-sub"></div>
-          </div>
-          <div class="stat-mini-val" id="st-cond-siaps">—</div>
-        </div>
-        <div class="stat-mini" style="border-left:3px solid #D97706" onclick="aplicarFiltroRapidoCondicao('inativa')" title="Condição inativa no PEC">
-          <div>
-            <div class="stat-mini-label">Condição inativa</div>
-            <div class="stat-mini-sub" id="st-cond-inativa-sub"></div>
-          </div>
-          <div class="stat-mini-val" id="st-cond-inativa">—</div>
-        </div>
-        <div class="stat-mini" style="border-left:3px solid var(--azul-mid)" onclick="aplicarFiltroRapidoCondicao('somente_pec')" title="Ativo no PEC mas ausente no SIAPS">
-          <div>
-            <div class="stat-mini-label">Somente PEC</div>
-            <div class="stat-mini-sub" id="st-cond-pec-sub"></div>
-          </div>
-          <div class="stat-mini-val" id="st-cond-pec">—</div>
         </div>
       </div>
 
