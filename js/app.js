@@ -65,12 +65,8 @@ function configurarModulo(id) {
   document.getElementById('mod-icone').textContent = cfg.icone || '📋';
   atualizarSidebarNav(id);
 
-  // Mostrar/esconder filtro e stats de condição PEC conforme disponibilidade
+  // Filtro de condição PEC sempre visível
   const temCond = !!condicoesMapPorModulo[id];
-  const filCond = document.getElementById('fil-condicao');
-  if (filCond) filCond.style.display = temCond ? '' : 'none';
-  const statsCond = document.getElementById('stats-condicao');
-  if (statsCond) statsCond.style.display = temCond ? '' : 'none';
 
   document.getElementById('legenda-criterios').innerHTML = cfg.criterios.map(c =>
     `<div style="display:flex;align-items:flex-start;gap:8px">
@@ -1171,22 +1167,7 @@ function renderModuloCharts() {
     </div>
   </div>`;
 
-  // ── Card 2: Donut Completo vs Pendente ──
-  const pctOk = total ? Math.round(completo / total * 100) : 0;
-  const pctPend = total ? Math.round(pendente / total * 100) : 0;
-  html += `<div class="chart-card">
-    <div class="chart-card-title">Situação dos Registros</div>
-    <div class="chart-donut-wrap">
-      <div class="chart-donut" style="--pct-ok:${pctOk}%;--pct-total:${pctOk + pctPend}%"></div>
-      <div class="chart-donut-center"><span class="num">${pctOk}%</span><span class="lbl">Completos</span></div>
-      <div class="chart-donut-legend">
-        <div class="chart-legend-item"><span class="chart-legend-dot cor-ok"></span>Completos<span class="chart-legend-val">${completo}</span></div>
-        <div class="chart-legend-item"><span class="chart-legend-dot cor-pend"></span>Pendentes<span class="chart-legend-val">${pendente}</span></div>
-        ${semCad ? `<div class="chart-legend-item"><span class="chart-legend-dot cor-sem"></span>Sem cadastro<span class="chart-legend-val">${semCad}</span></div>` : ''}
-      </div>
-    </div>
-  </div>`;
-
+  
   // ── Card 3: Adesão por Critério (barras horizontais) ──
   const cfgC = MODULOS[moduloAtivo];
   if (cfgC && cfgC.criterios.length) {
