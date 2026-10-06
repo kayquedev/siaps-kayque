@@ -1052,6 +1052,7 @@ td.nome-cell .sem { color: var(--muted); font-style: italic; font-size: 12px; }
 /* Donut chart (CSS puro) */
 .chart-donut-wrap {
   display: flex; align-items: center; gap: 20px;
+  position: relative;
 }
 .chart-donut {
   width: 90px; height: 90px; flex-shrink: 0;
