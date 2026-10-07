@@ -551,6 +551,40 @@ body {
   border-style: solid; border-color: rgba(255,255,255,.08);
 }
 
+/* Upload unificado SIAPS — área maior para múltiplos arquivos */
+#card-siaps-unificado, #m-card-siaps-unificado {
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+#card-siaps-unificado h4, #m-card-siaps-unificado h4 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+#card-siaps-unificado p, #m-card-siaps-unificado p {
+  font-size: 12px;
+  max-width: 320px;
+}
+
+/* Filtro de equipe na toolbar */
+#fil-equipe {
+  min-width: 160px;
+}
+#fil-equipe option[value=""] {
+  color: #F59E0B;
+  font-weight: 700;
+}
+
+/* Badge de equipes no dashboard */
+.equipe-badge {
+  font-size: 10px;
+  color: #60A5FA;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
 /* Badges de condição PEC */
 .badge-cond-ok       { color: var(--verde); font-weight: 700; }
 .badge-cond-inativa  { color: #D97706; font-weight: 700; }

@@ -98,6 +98,9 @@ function configurarModulo(id) {
   document.getElementById('fil-microarea').value = '';
   preencherMicroareas();
 
+  // Preencher equipes e aplicar filtro obrigatório quando >1 equipe
+  preencherEquipes();
+
   renderModuloCharts();
 
   document.getElementById('btn-exportar').disabled = false;
@@ -113,13 +116,19 @@ function configurarModulo(id) {
 }
 
 function renderFonteDados(id) {
-  const rows = rawSiapsPorModulo[id] || [];
+  const porEquipe = rawSiapsPorModulo[id];
+  let totalReg = 0;
+  let numEquipes = 0;
+  if (porEquipe && !Array.isArray(porEquipe)) {
+    for (const rows of Object.values(porEquipe)) { totalReg += rows.length; numEquipes++; }
+  } else if (Array.isArray(porEquipe)) {
+    totalReg = porEquipe.length; numEquipes = 1;
+  }
   const fonte = document.getElementById('fonte-dados');
   if (fonte) {
     let html =
-      `<div class="fonte-item"><strong>${rows.length}</strong> registros no SIAPS</div>
+      `<div class="fonte-item"><strong>${totalReg}</strong> registros no SIAPS${numEquipes > 1 ? ` (${numEquipes} equipes)` : ''}</div>
        <div class="fonte-item"><strong>${Object.keys(rawVinc || {}).length}</strong> cadastros vinculados</div>`;
-    // Adicionar contagem de condições PEC quando disponível
     const condRows = condicoesMapPorModulo[id] ? Object.keys(condicoesMapPorModulo[id]).length : 0;
     if (condRows > 0) {
       html += `<div class="fonte-item"><strong>${condRows}</strong> registros na lista de condições PEC</div>`;
@@ -157,6 +166,33 @@ function preencherMicroareas() {
     sel.appendChild(opt);
   });
   sel.value = areas.includes(atual) ? atual : '';
+}
+
+// Popula o select de equipes para o módulo ativo
+function preencherEquipes() {
+  const sel = document.getElementById('fil-equipe');
+  if (!sel) return;
+  const equipes = equipesPorModulo[moduloAtivo] || [];
+  if (equipes.length <= 1) {
+    sel.style.display = 'none';
+    sel.innerHTML = '<option value="">Todas as equipes</option>';
+    return;
+  }
+  sel.style.display = '';
+  const salvaSelecao = equipeSelecionada[moduloAtivo] || '';
+  sel.innerHTML = '<option value="">Selecione a equipe</option><option value="__todas__">Todas as equipes (consolidado)</option>';
+  equipes.forEach(ine => {
+    const opt = document.createElement('option');
+    opt.value = ine;
+    opt.textContent = ine === 'sem_ine' ? 'Sem INE identificado' : 'Equipe ' + ine;
+    sel.appendChild(opt);
+  });
+  // Restaura seleção anterior ou deixa em branco (obrigatório)
+  if (salvaSelecao && [...sel.options].some(o => o.value === salvaSelecao)) {
+    sel.value = salvaSelecao;
+  } else {
+    sel.value = '';
+  }
 }
 
 function voltarInicio() {
@@ -197,8 +233,10 @@ function imprimirPDF() {
   document.getElementById('print-titulo').textContent =
     `${MODULOS[moduloAtivo].titulo} · Lista Nominal`;
 
+  const eqSel = document.getElementById('fil-equipe')?.value || '';
+  const eqLabel = eqSel && eqSel !== '__todas__' ? ` · Equipe: ${eqSel === 'sem_ine' ? 'Sem INE' : eqSel}` : '';
   document.getElementById('print-subtitulo').textContent =
-    `Gerado em ${dt} · Exibindo ${filtered.length} de ${total} registros`;
+    `Gerado em ${dt}${eqLabel} · Exibindo ${filtered.length} de ${total} registros`;
 
   document.getElementById('print-stats').innerHTML =
     `<span>Total: <strong>${total}</strong></span>` +
@@ -468,6 +506,10 @@ function renderDashboard() {
         rodape = `<div class="indic-link">Importar planilha →</div>`;
       }
 
+      // Badge de equipes importadas
+      const eqCount = ind.moduloId && equipesPorModulo[ind.moduloId] ? equipesPorModulo[ind.moduloId].length : 0;
+      const eqBadge = eqCount > 1 ? `<div style="font-size:10px;color:#60A5FA;margin-top:2px;font-weight:600">📋 ${eqCount} equipes</div>` : '';
+
       // Indicador visual de cruzamento PEC ativo
       const temCondPEC = ind.moduloId && !!condicoesMapPorModulo[ind.moduloId];
       const condBadge = temCondPEC ? '<div style="font-size:10px;color:#34D399;margin-top:4px;font-weight:600">🔗 Cruzamento PEC ativo</div>' : '';
@@ -480,6 +522,7 @@ function renderDashboard() {
         ${valorHtml}
         <div class="indic-name">${ind.nome}</div>
         <div class="indic-desc">${ind.desc}</div>
+        ${eqBadge}
         ${condBadge}
         ${barraHtml}
         ${rodape}
@@ -536,12 +579,14 @@ function renderDashboard() {
 //  ESTADO GLOBAL
 // ─────────────────────────────────────────────
 let moduloAtivo = null;
-let rawVinc = null;                 // mapa CPF -> cadastro vinculado (compartilhado)
-let rawSiapsPorModulo = {};         // { c2: [...], c4: [...], ... }
-let resultadosPorModulo = {};       // { c2: [merged...], ... } já processado
-let rawCondicoesPorTema = {};       // { hipertensao: [rows...] }
-let condicoesMapPorModulo = {};     // { c5: { cpf_norm: row, ... }, ... }
-let statusCondicoes = {};           // { hipertensao: '✅ 120 registros' }
+let rawVinc = null;                 // mapa CPF -> cadastro vinculado (compartilhado, merge aditivo)
+let rawSiapsPorModulo = {};         // { c5: { "INE_x": [rows], "INE_y": [rows] }, ... } — multi-equipe
+let resultadosPorModulo = {};       // { c5: [merged...], ... } já processado (consolidado ou filtrado)
+let rawCondicoesPorTema = {};       // { hipertensao: { "fonte1": [rows], "fonte2": [rows] }, ... } — multi-fonte
+let condicoesMapPorModulo = {};     // { c5: { cpf_norm: row, ... }, ... } — merge aditivo por CPF
+let statusCondicoes = {};           // { hipertensao: '✅ 120 registros (2 fontes)' }
+let equipesPorModulo = {};          // { c5: ["INE_x", "INE_y"], ... } — lista de equipes detectadas
+let equipeSelecionada = {};         // { c5: "INE_x", ... } — seleção atual por módulo
 let merged   = [];                  // dados do módulo aberto no momento (referência)
 let filtered = [];
 let sortCol  = null;
@@ -550,8 +595,9 @@ let page     = 0;
 const PAGE_SIZE = 100;
 
 // Estado da importação
-let statusImport = {};              // { vinc: '✅ 120 cadastros', c2: '✅ 45 registros', ... } (texto exibido nos cards)
+let statusImport = {};              // { vinc: '✅ 120 cadastros', siaps: '✅ C5: 2 eq...', ... }
 let importacaoIncremental = false;  // true enquanto o modal "Importar planilhas" está aberto
+let vincFontesCount = 0;            // contador de arquivos de vinculados importados
 
 // Estado de exibição (só afeta a tela, nunca os dados)
 //  • coluna Telefone: oculta por padrão (classe "mostrar-telefone" no <body>)
@@ -611,20 +657,26 @@ function ev(e, tipo, enter) {
 function drop(e, tipo) {
   e.preventDefault();
   ev(e, tipo, false);
-  const file = e.dataTransfer.files[0];
-  if (file) parseFile(file, tipo);
+  const files = e.dataTransfer.files;
+  for (let i = 0; i < files.length; i++) {
+    parseFile(files[i], tipo);
+  }
 }
 function loadFile(e, tipo) {
   const input = e.target;
-  const file = input.files[0];
-  if (file) parseFile(file, tipo);
+  const files = input.files;
+  for (let i = 0; i < files.length; i++) {
+    parseFile(files[i], tipo);
+  }
   input.value = '';   // permite escolher o mesmo arquivo de novo (ex.: depois de corrigi-lo)
 }
 
 // ─────────────────────────────────────────────
 //  PARSE DE ARQUIVOS
-//  tipo === 'vinc'  → Cidadãos Vinculados (compartilhado)
-//  tipo === <id do módulo>  → Lista Nominal SIAPS daquele indicador
+//  tipo === 'vinc'   → Cidadãos Vinculados (merge aditivo)
+//  tipo === 'siaps'  → Upload unificado SIAPS (detecção automática)
+//  tipo === 'cond_*' → Condições PEC (merge aditivo por tema)
+//  tipo === <id>     → Upload direto por card individual (legado/modal)
 // ─────────────────────────────────────────────
 function parseFile(file, tipo) {
   const ext = file.name.split('.').pop().toLowerCase();
@@ -636,7 +688,7 @@ function parseFile(file, tipo) {
       const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
       if (tipo === 'vinc') parseVinc_xlsx(raw, file.name);
       else if (tipo.startsWith('cond_')) parseCondicoesPEC(raw, file.name);
-      else parseSiaps(raw, file.name, tipo);
+      else parseSiaps(raw, file.name, tipo); // tipo='siaps' → detecção automática dentro de parseSiaps
     };
     reader.readAsArrayBuffer(file);
   } else {
@@ -662,12 +714,70 @@ function parseFile(file, tipo) {
   }
 }
 
+// Detecta automaticamente o módulo SIAPS pela linha acima do cabeçalho
+function detectarModuloSIAPS(rows) {
+  // Encontra a linha do cabeçalho (contém "CPF")
+  let headerIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i] && rows[i].some(c => String(c).trim() === 'CPF')) { headerIdx = i; break; }
+  }
+  if (headerIdx <= 0) return null; // sem linha anterior para analisar
+
+  // Lê as linhas acima do cabeçalho (até 5 linhas antes) buscando palavras-chave
+  const mapa = [
+    { chaves: ['hipertensão', 'hipertensao', 'c5'], mod: 'c5' },
+    { chaves: ['diabetes', 'c4'], mod: 'c4' },
+    { chaves: ['gestação', 'gestacao', 'puerpério', 'puerperio', 'c3'], mod: 'c3' },
+    { chaves: ['desenvolvimento infantil', 'criança', 'crianca', 'c2'], mod: 'c2' },
+    { chaves: ['pessoa idosa', 'idoso', 'idosa', 'c6'], mod: 'c6' },
+    { chaves: ['mulher', 'câncer', 'cancer', 'prevenção', 'prevencao', 'c7'], mod: 'c7' },
+    { chaves: ['vínculo', 'vinculo', 'territorial', 'cvat'], mod: 'cvat' },
+  ];
+
+  for (let i = Math.max(0, headerIdx - 5); i < headerIdx; i++) {
+    if (!rows[i]) continue;
+    const texto = rows[i].map(c => String(c).trim()).join(' ').toLowerCase();
+    for (const entrada of mapa) {
+      if (entrada.chaves.some(k => texto.includes(k))) return entrada.mod;
+    }
+  }
+  return null;
+}
+
+// Extrai o INE da equipe da primeira linha válida de dados
+function extrairINE(rows, headerIdx) {
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    if (!rows[i] || rows[i].every(c => c === '' || c === null || c === undefined)) continue;
+    const headers = rows[headerIdx].map(h => String(h).trim());
+    const ineIdx = headers.indexOf('INE');
+    if (ineIdx >= 0 && rows[i][ineIdx]) {
+      const ine = String(rows[i][ineIdx]).trim();
+      if (ine) return ine;
+    }
+    break;
+  }
+  return 'sem_ine';
+}
+
 function parseSiaps(rows, nome, moduloId) {
   let headerIdx = -1;
   for (let i = 0; i < rows.length; i++) {
     if (rows[i].some(c => String(c).trim() === 'CPF')) { headerIdx = i; break; }
   }
   if (headerIdx < 0) { alert('Arquivo SIAPS: não encontrei linha com "CPF". Verifique o arquivo.'); return; }
+
+  // Se moduloId não foi fornecido (upload unificado), detectar automaticamente
+  if (!moduloId || moduloId === 'siaps') {
+    moduloId = detectarModuloSIAPS(rows);
+    if (!moduloId) {
+      alert(`Não foi possível identificar o indicador do arquivo "${nome}".\nVerifique se há uma linha acima do cabeçalho com o nome do indicador (ex: "Hipertensão", "Diabetes").`);
+      return;
+    }
+  }
+
+  // Extrair INE da equipe
+  const ine = extrairINE(rows, headerIdx);
+
   const headers = rows[headerIdx].map(h => String(h).trim());
   const data = [];
   for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -678,11 +788,55 @@ function parseSiaps(rows, nome, moduloId) {
     if (!obj['CPF'] && !obj['CNS']) continue;
     obj['_cpf_norm'] = normCPF(obj['CPF'] || obj['CNS']);
     if (!obj['_cpf_norm']) continue;
+    obj['_ine'] = ine; // marca cada linha com a equipe de origem
+    obj['_fonte'] = nome;
     data.push(obj);
   }
-  rawSiapsPorModulo[moduloId] = data;
-  setStatus(moduloId, `✅ ${data.length} registros`, nome);
+
+  // Armazena por módulo e equipe (multi-fonte)
+  if (!rawSiapsPorModulo[moduloId]) rawSiapsPorModulo[moduloId] = {};
+  rawSiapsPorModulo[moduloId][ine] = data;
+
+  // Atualiza lista de equipes
+  if (!equipesPorModulo[moduloId]) equipesPorModulo[moduloId] = [];
+  if (!equipesPorModulo[moduloId].includes(ine)) equipesPorModulo[moduloId].push(ine);
+
+  // Atualiza status unificado
+  atualizarStatusSIAPS();
   aoImportar(moduloId);
+}
+
+// Atualiza o resumo/status das planilhas SIAPS importadas (upload unificado)
+function atualizarStatusSIAPS() {
+  const partes = [];
+  let totalRegistros = 0;
+  for (const modId of Object.keys(rawSiapsPorModulo)) {
+    const equipes = rawSiapsPorModulo[modId];
+    const eqCount = Object.keys(equipes).length;
+    let regCount = 0;
+    for (const eqRows of Object.values(equipes)) regCount += eqRows.length;
+    totalRegistros += regCount;
+    const titulo = MODULOS[modId] ? MODULOS[modId].titulo : modId;
+    partes.push(`${titulo}: ${eqCount} eq. (${regCount} reg.)`);
+  }
+  const resumo = partes.length > 0
+    ? `✅ ${partes.join(' · ')}`
+    : '';
+  // Atualiza tanto a tela principal quanto o modal
+  const elStatus = document.getElementById('status-siaps');
+  const elResumo = document.getElementById('upload-indicadores-resumo');
+  const mElStatus = document.getElementById('m-status-siaps');
+  const mElResumo = document.getElementById('modal-upload-indicadores-resumo');
+  if (elStatus) elStatus.textContent = resumo;
+  if (elResumo) elResumo.textContent = resumo;
+  if (mElStatus) mElStatus.textContent = resumo;
+  if (mElResumo) mElResumo.textContent = resumo;
+  // Marca card como carregado
+  const card = document.getElementById('card-siaps-unificado');
+  const mCard = document.getElementById('m-card-siaps-unificado');
+  if (card && totalRegistros > 0) card.classList.add('loaded');
+  if (mCard && totalRegistros > 0) mCard.classList.add('loaded');
+  statusImport['siaps'] = resumo;
 }
 
 function parseVinc_csv(rows, nome) {
@@ -711,8 +865,12 @@ function parseVinc_csv(rows, nome) {
     if (!obj['_cpf_norm']) continue;
     data.push(obj);
   }
-  rawVinc = buildVincMap(data);
-  setStatus('vinc', `✅ ${data.length} cadastros`, nome);
+  // Merge aditivo: adiciona novos CPFs e atualiza existentes
+  if (!rawVinc) rawVinc = {};
+  data.forEach(r => { if (r['_cpf_norm']) rawVinc[r['_cpf_norm']] = r; });
+  vincFontesCount++;
+  const totalVinc = Object.keys(rawVinc).length;
+  setStatus('vinc', `✅ ${totalVinc} cadastros (${vincFontesCount} arquivo${vincFontesCount > 1 ? 's' : ''})`, nome);
   aoImportar('vinc');
 }
 
@@ -734,8 +892,12 @@ function parseVinc_xlsx(rows, nome) {
     if (!obj['_cpf_norm']) continue;
     data.push(obj);
   }
-  rawVinc = buildVincMap(data);
-  setStatus('vinc', `✅ ${data.length} cadastros`, nome);
+  // Merge aditivo: adiciona novos CPFs e atualiza existentes
+  if (!rawVinc) rawVinc = {};
+  data.forEach(r => { if (r['_cpf_norm']) rawVinc[r['_cpf_norm']] = r; });
+  vincFontesCount++;
+  const totalVinc = Object.keys(rawVinc).length;
+  setStatus('vinc', `✅ ${totalVinc} cadastros (${vincFontesCount} arquivo${vincFontesCount > 1 ? 's' : ''})`, nome);
   aoImportar('vinc');
 }
 
@@ -827,16 +989,19 @@ function parseCondicoesPEC(rows, nomeArquivo) {
     data.push(obj);
   }
 
-  // 5. Armazenar
-  rawCondicoesPorTema[chave] = data;
+  // 5. Armazenar com merge multi-fonte
+  if (!rawCondicoesPorTema[chave]) rawCondicoesPorTema[chave] = {};
+  rawCondicoesPorTema[chave][nomeArquivo] = data;
 
-  // 6. Construir mapa CPF→row para o módulo correspondente
+  // 6. Construir mapa CPF→row para o módulo correspondente (merge aditivo)
   const modId = cfg.moduloId;
   if (!condicoesMapPorModulo[modId]) condicoesMapPorModulo[modId] = {};
   data.forEach(r => { condicoesMapPorModulo[modId][r['_cpf_norm']] = r; });
 
-  // 7. Atualizar status UI
-  statusCondicoes[chave] = `✅ ${data.length} registros`;
+  // 7. Atualizar status UI com contagem de fontes
+  const totalRegistros = Object.keys(condicoesMapPorModulo[modId]).length;
+  const numFontes = Object.keys(rawCondicoesPorTema[chave]).length;
+  statusCondicoes[chave] = `✅ ${totalRegistros} registros (${numFontes} fonte${numFontes > 1 ? 's' : ''})`;
   setStatus('cond_' + chave, `✅ ${data.length} registros`, nomeArquivo);
 
   aoImportar('cond_' + chave);
@@ -874,16 +1039,12 @@ function htmlUploadBox(prefixo, tipo, titulo, subtitulo, accept) {
   return `
     <div class="upload-box${status ? ' loaded' : ''}" id="${prefixo}card-${tipo}"
          ondragover="ev(event,'${tipo}',true)" ondragleave="ev(event,'${tipo}',false)" ondrop="drop(event,'${tipo}')">
-      <input type="file" accept="${accept}" onchange="loadFile(event,'${tipo}')">
+      <input type="file" accept="${accept}" multiple onchange="loadFile(event,'${tipo}')">
       <h4>${titulo}</h4>
       <p>${subtitulo}</p>
       <div class="status" id="${prefixo}status-${tipo}">${status}</div>
     </div>`;
 }
-const HTML_CARDS_INDICADORES = prefixo => Object.keys(MODULOS).map(id =>
-  htmlUploadBox(prefixo, id, MODULOS[id].titulo, 'Lista Nominal Qualidade · SIAPS', '.xlsx,.xls,.csv')
-).join('');
-
 function HTML_CARDS_CONDICOES(prefixo) {
   const ativos = Object.entries(CONDICOES_PEC).map(([key, cfg]) =>
     htmlUploadBox(prefixo, 'cond_' + key, cfg.label, 'Condições de Saúde · e-SUS PEC', '.csv')
@@ -898,8 +1059,14 @@ function HTML_CARDS_CONDICOES(prefixo) {
 }
 
 function montarTelaUpload() {
-  const alvo = document.getElementById('upload-indicadores');
-  if (alvo) alvo.innerHTML = HTML_CARDS_INDICADORES('');
+  // Upload unificado SIAPS — não gera mais cards individuais
+  const resumo = document.getElementById('upload-indicadores-resumo');
+  if (resumo) resumo.textContent = '';
+  const cardSiaps = document.getElementById('card-siaps-unificado');
+  if (cardSiaps) cardSiaps.classList.remove('loaded', 'dragover');
+  const statusSiaps = document.getElementById('status-siaps');
+  if (statusSiaps) statusSiaps.textContent = '';
+
   const alvoCond = document.getElementById('upload-condicoes');
   if (alvoCond) alvoCond.innerHTML = HTML_CARDS_CONDICOES('');
 
@@ -911,13 +1078,26 @@ function montarTelaUpload() {
   if (btn) btn.disabled = true;
 }
 
+// Consolida todas as equipes de um módulo em um único array
+function consolidarEquipes(moduloId) {
+  const porEquipe = rawSiapsPorModulo[moduloId];
+  if (!porEquipe) return [];
+  if (Array.isArray(porEquipe)) return porEquipe; // compatibilidade legado
+  const todos = [];
+  for (const rows of Object.values(porEquipe)) {
+    for (let i = 0; i < rows.length; i++) todos.push(rows[i]);
+  }
+  return todos;
+}
+
 // Cruza a lista nominal SIAPS de um módulo com os Cidadãos Vinculados
 // e enriquece com dados de condições PEC quando disponíveis
 function processarModulo(id) {
   const cfg   = MODULOS[id];
   const vinc  = rawVinc || {};
   const condMap = condicoesMapPorModulo[id] || {};
-  return (rawSiapsPorModulo[id] || []).map(s => {
+  const todosRows = consolidarEquipes(id);
+  return todosRows.map(s => {
     const cpfNorm = s['_cpf_norm'];
     const cond = condMap[cpfNorm] || null;
     return processarLinha(id, cfg, s, vinc[cpfNorm] || {}, cond);
@@ -927,7 +1107,8 @@ function processarModulo(id) {
 // Pessoas com condição ativa no PEC que NÃO constam na lista SIAPS do módulo
 function encontrarFaltantesNoSIAPS(moduloId) {
   const condMap = condicoesMapPorModulo[moduloId] || {};
-  const siapsCPFs = new Set((rawSiapsPorModulo[moduloId] || []).map(s => s['_cpf_norm']));
+  const todosRows = consolidarEquipes(moduloId);
+  const siapsCPFs = new Set(todosRows.map(s => s['_cpf_norm']));
   const vinc = rawVinc || {};
   const faltantes = [];
   Object.values(condMap).forEach(c => {
@@ -971,9 +1152,18 @@ function importarTudo() {
 // ─────────────────────────────────────────────
 function abrirImportacao() {
   importacaoIncremental = true;
-  document.getElementById('modal-upload-vinc').innerHTML =
-    htmlUploadBox('m-', 'vinc', 'Cidadãos Vinculados', '.csv ou .xlsx · e-SUS PEC', '.csv,.xlsx');
-  document.getElementById('modal-upload-indicadores').innerHTML = HTML_CARDS_INDICADORES('m-');
+  // Modal usa área unificada SIAPS (definida estaticamente no HTML)
+  const mCardSiaps = document.getElementById('m-card-siaps-unificado');
+  if (mCardSiaps) mCardSiaps.classList.remove('loaded', 'dragover');
+  const mStatusSiaps = document.getElementById('m-status-siaps');
+  if (mStatusSiaps) mStatusSiaps.textContent = statusImport['siaps'] || '';
+  const mResumo = document.getElementById('modal-upload-indicadores-resumo');
+  if (mResumo) mResumo.textContent = statusImport['siaps'] || '';
+  // Restaurar status de vinculados no modal
+  const mCardVinc = document.getElementById('m-card-vinc');
+  const mStatusVinc = document.getElementById('m-status-vinc');
+  if (mCardVinc && Object.keys(rawVinc || {}).length > 0) mCardVinc.classList.add('loaded');
+  if (mStatusVinc) mStatusVinc.textContent = statusImport['vinc'] || '';
   const alvoCondModal = document.getElementById('modal-upload-condicoes');
   if (alvoCondModal) alvoCondModal.innerHTML = HTML_CARDS_CONDICOES('m-');
   document.getElementById('modal-importar').style.display = 'flex';
@@ -989,8 +1179,20 @@ function fecharImportacao(e) {
 
 function processarImportacaoIncremental(tipo) {
   if (!rawVinc) return;
-  // trocar os Cidadãos Vinculados muda nome/microárea de todos os módulos
-  const ids = tipo === 'vinc' ? Object.keys(rawSiapsPorModulo) : (tipo.startsWith('cond_') ? Object.keys(condicoesMapPorModulo) : [tipo]);
+  // tipo='siaps' → upload unificado afeta todos os módulos detectados
+  // tipo='vinc' → Cidadãos Vinculados muda nome/microárea de todos os módulos
+  // tipo='cond_*' → condições PEC afetam módulos com condicoesMapPorModulo
+  // tipo=<id> → módulo específico (legado)
+  let ids;
+  if (tipo === 'siaps') {
+    ids = Object.keys(rawSiapsPorModulo);
+  } else if (tipo === 'vinc') {
+    ids = Object.keys(rawSiapsPorModulo);
+  } else if (tipo.startsWith('cond_')) {
+    ids = Object.keys(condicoesMapPorModulo);
+  } else {
+    ids = [tipo];
+  }
   ids.forEach(id => {
     resultadosPorModulo[id] = processarModulo(id);
     if (condicoesMapPorModulo[id]) {
@@ -1000,18 +1202,17 @@ function processarImportacaoIncremental(tipo) {
 
   const noModulo = document.getElementById('tela-modulo').style.display !== 'none';
 
-  // o painel sempre é refeito (voltarInicio() só exibe a tela, não redesenha);
-  // depois a navegação lateral volta a marcar a tela em que o usuário está
   renderDashboard();
   atualizarSidebarNav(noModulo ? moduloAtivo : 'inicial');
 
   // no módulo aberto: atualiza os dados mantendo busca, filtros, ordem e aba
-  // Também atualiza quando uma condição PEC é importada (tipo.startsWith('cond_'))
   const condAfetaModulo = tipo.startsWith('cond_') && condicoesMapPorModulo[moduloAtivo];
-  if (noModulo && moduloAtivo && (tipo === 'vinc' || tipo === moduloAtivo || condAfetaModulo) && resultadosPorModulo[moduloAtivo]) {
+  const siapsAfetaModulo = tipo === 'siaps' && rawSiapsPorModulo[moduloAtivo];
+  if (noModulo && moduloAtivo && (tipo === 'vinc' || tipo === moduloAtivo || condAfetaModulo || siapsAfetaModulo) && resultadosPorModulo[moduloAtivo]) {
     merged = resultadosPorModulo[moduloAtivo];
     renderFonteDados(moduloAtivo);
     preencherMicroareas();
+    preencherEquipes();
     renderModuloCharts();
     filtrar();
   }
@@ -1051,7 +1252,7 @@ function dadosBase(s, v, cond) {
     idade:     calcIdade(nascimento),
     sexo:      s['Sexo']        || '',
     cnes:      s['CNES']        || '',
-    ine:       s['INE']         || '',
+    ine:       s['INE']         || s['_ine'] || '',
     sem_cadastro: !v['Nome'],
     att_cadastro: v['Data da última atualização cadastral'] || v['Data última atualização cadastral'] || v['Última atualização cadastral'] || '',
     cond_encontrado,
@@ -1230,6 +1431,9 @@ function filtrar() {
   const criterio = document.getElementById('fil-criterio').value;
   const microarea= document.getElementById('fil-microarea').value;
   const condicao = document.getElementById('fil-condicao')?.value || '';
+  const equipe   = document.getElementById('fil-equipe')?.value || '';
+  // Salvar seleção de equipe para o módulo ativo
+  if (moduloAtivo && equipe) equipeSelecionada[moduloAtivo] = equipe;
 
   filtered = merged.filter(r => {
     if (busca && !r.nome.toLowerCase().includes(busca) && !r.cpf_orig.includes(busca)) return false;
@@ -1238,6 +1442,8 @@ function filtrar() {
     if (situacao === 'sem'      && !r.sem_cadastro)           return false;
     if (criterio && r[criterio] !== false) return false;
     if (microarea && r.microarea !== microarea) return false;
+    // Filtro de equipe (INE): __todas__ mostra tudo, vazio com >1 equipe bloqueia
+    if (equipe && equipe !== '__todas__' && r.ine !== equipe) return false;
     // Filtro de condição PEC
     if (condicao === 'ok' && r.cond_situacao !== 'ok') return false;
     if (condicao === 'inativa' && r.cond_situacao !== 'inativa') return false;
@@ -1392,16 +1598,24 @@ function setTab(t) {
   if (t === 'consolidado') renderConsolidado();
 }
 
-// Resumo por microárea: total, completos/incompletos e adesão a cada
-// critério — reflete os mesmos filtros/busca já aplicados na aba nominal.
+// Resumo por microárea (ou por equipe quando >1): total, completos/incompletos
+// e adesão a cada critério — reflete os mesmos filtros/busca já aplicados na aba nominal.
 function renderConsolidado() {
   const cfgR = MODULOS[moduloAtivo];
   const alvo = document.getElementById('consolidado-container');
   if (!cfgR || !alvo) return;
 
+  // Agrupar por equipe quando houver múltiplas equipes e nenhuma equipe específica selecionada
+  const eqSel = document.getElementById('fil-equipe')?.value || '';
+  const multiEquipe = (equipesPorModulo[moduloAtivo] || []).length > 1;
+  const agruparPorEquipe = multiEquipe && (!eqSel || eqSel === '__todas__');
+  const chaveLabel = agruparPorEquipe ? 'Equipe' : 'Microárea';
+
   const grupos = new Map();
   filtered.forEach(r => {
-    const key = (r.microarea || '').trim() || '(sem microárea)';
+    const key = agruparPorEquipe
+      ? (r.ine || 'sem_ine')
+      : ((r.microarea || '').trim() || '(sem microárea)');
     if (!grupos.has(key)) grupos.set(key, { total: 0, completo: 0, crits: Object.fromEntries(cfgR.colsCrit.map(k => [k, 0])) });
     const g = grupos.get(key);
     g.total++;
@@ -1427,8 +1641,11 @@ function renderConsolidado() {
     const pctCompleto = pct(g.completo, g.total);
     const critCells = cfgR.colsCrit.map(k => `<td class="center">${g.crits[k]}/${g.total}</td>`).join('');
     const tagClasse = pctCompleto >= 75 ? 'ok' : pctCompleto >= 50 ? 'mid' : 'pend';
+    const labelChave = agruparPorEquipe
+      ? (key === 'sem_ine' ? 'Sem INE identificado' : 'Equipe ' + key)
+      : (key === '(sem microárea)' ? key : 'Microárea ' + key);
     linhasHtml += `<tr>
-      <td><strong>${key === '(sem microárea)' ? key : 'Microárea ' + key}</strong></td>
+      <td><strong>${labelChave}</strong></td>
       <td class="center">${g.total}</td>
       ${critCells}
       <td class="center">${g.completo}</td>
@@ -1439,7 +1656,7 @@ function renderConsolidado() {
 
   alvo.innerHTML = `<div class="table-scroll"><table>
     <thead><tr>
-      <th>Microárea</th>
+      <th>${chaveLabel}</th>
       <th class="center">Total</th>
       ${critHeaders}
       <th class="center">Completos</th>

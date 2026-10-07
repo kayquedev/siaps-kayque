@@ -87,17 +87,26 @@
       <div class="upload-grid upload-grid-single">
         <div class="upload-box" id="card-vinc"
              ondragover="ev(event,'vinc',true)" ondragleave="ev(event,'vinc',false)" ondrop="drop(event,'vinc')">
-          <input type="file" accept=".csv,.xlsx" onchange="loadFile(event,'vinc')">
+          <input type="file" accept=".csv,.xlsx" multiple onchange="loadFile(event,'vinc')">
           <h4>Cidadãos Vinculados</h4>
-          <p>.csv ou .xlsx · e-SUS PEC</p>
+          <p>.csv ou .xlsx · e-SUS PEC · múltiplos arquivos</p>
           <div class="status" id="status-vinc"></div>
         </div>
       </div>
     </div>
 
     <div class="upload-section">
-      <div class="upload-section-label">Listas nominais SIAPS por indicador</div>
-      <div class="upload-grid" id="upload-indicadores"></div>
+      <div class="upload-section-label">Listas nominais SIAPS (todas as equipes/indicadores)</div>
+      <div class="upload-grid upload-grid-single">
+        <div class="upload-box" id="card-siaps-unificado"
+             ondragover="ev(event,'siaps',true)" ondragleave="ev(event,'siaps',false)" ondrop="drop(event,'siaps')">
+          <input type="file" accept=".xlsx,.xls,.csv" multiple onchange="loadFile(event,'siaps')">
+          <h4>📋 Planilhas SIAPS</h4>
+          <p>Arraste uma ou mais planilhas · o sistema detecta o indicador automaticamente</p>
+          <div class="status" id="status-siaps"></div>
+        </div>
+      </div>
+      <div id="upload-indicadores-resumo" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
     </div>
 
     <div class="upload-section">
@@ -243,6 +252,9 @@
         <select class="toolbar-select" id="fil-microarea" onchange="filtrar()">
           <option value="">Todas as microáreas</option>
         </select>
+        <select class="toolbar-select" id="fil-equipe" onchange="filtrar()" style="display:none">
+          <option value="">Selecione a equipe</option>
+        </select>
         <select class="toolbar-select" id="fil-condicao" onchange="filtrar()">
           <option value="">Todas as condições PEC</option>
           <option value="ok">Condição ativa</option>
@@ -298,11 +310,28 @@
     <div class="modal-corpo">
       <div class="upload-section">
         <div class="upload-section-label">Cidadãos Vinculados</div>
-        <div class="upload-grid upload-grid-single" id="modal-upload-vinc"></div>
+        <div class="upload-grid upload-grid-single">
+          <div class="upload-box" id="m-card-vinc"
+               ondragover="ev(event,'vinc',true)" ondragleave="ev(event,'vinc',false)" ondrop="drop(event,'vinc')">
+            <input type="file" accept=".csv,.xlsx" multiple onchange="loadFile(event,'vinc')">
+            <h4>Cidadãos Vinculados</h4>
+            <p>.csv ou .xlsx · e-SUS PEC · múltiplos arquivos</p>
+            <div class="status" id="m-status-vinc"></div>
+          </div>
+        </div>
       </div>
       <div class="upload-section">
-        <div class="upload-section-label">Listas nominais SIAPS por indicador</div>
-        <div class="upload-grid" id="modal-upload-indicadores"></div>
+        <div class="upload-section-label">Listas nominais SIAPS (todas as equipes/indicadores)</div>
+        <div class="upload-grid upload-grid-single">
+          <div class="upload-box" id="m-card-siaps-unificado"
+               ondragover="ev(event,'siaps',true)" ondragleave="ev(event,'siaps',false)" ondrop="drop(event,'siaps')">
+            <input type="file" accept=".xlsx,.xls,.csv" multiple onchange="loadFile(event,'siaps')">
+            <h4>📋 Planilhas SIAPS</h4>
+            <p>Arraste uma ou mais planilhas · o sistema detecta o indicador automaticamente</p>
+            <div class="status" id="m-status-siaps"></div>
+          </div>
+        </div>
+        <div id="modal-upload-indicadores-resumo" style="margin-top:8px;font-size:12px;color:var(--muted)"></div>
       </div>
       <div class="upload-section">
         <div class="upload-section-label">Listas de Condições de Saúde (e-SUS PEC)</div>
