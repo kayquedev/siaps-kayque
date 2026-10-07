@@ -1141,6 +1141,23 @@ td.nome-cell .sem { color: var(--muted); font-style: italic; font-size: 12px; }
 .chart-kpi.cor-vermelho .val { color: var(--vermelho); }
 .chart-kpi.cor-ambar .val  { color: var(--ambar); }
 
+/* Panorama Geral no Dashboard */
+.panorama-section {
+  display: flex; flex-direction: column; gap: 16px;
+}
+.panorama-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+.panorama-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+@media (max-width: 768px) {
+  .panorama-row { grid-template-columns: 1fr; }
+}
+.panorama-condicoes, .panorama-criterios, .panorama-indicadores {
+  break-inside: avoid;
+}
+
 /* ══════════════════════════════════════════
    IMPRESSÃO / PDF
 ══════════════════════════════════════════ */

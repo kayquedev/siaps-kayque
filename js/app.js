@@ -458,6 +458,60 @@ function mediaPontos(id) {
   return Math.round(soma / dados.length);
 }
 
+// Computa agregados consolidados de todos os módulos para o Panorama Geral
+function computarPanoramaGeral() {
+  const cpfsSiaps = new Set();
+  let completos = 0, pendentes = 0, semCadastro = 0;
+  let condAtiva = 0, condInativa = 0, somenteSiaps = 0, somentePec = 0;
+  const critPendentes = {}; // { "A": { count, desc, modulo } }
+  const indicadoresPend = []; // [ { nome, pctPendente, total, pend } ]
+
+  Object.keys(resultadosPorModulo).forEach(modId => {
+    const rows = resultadosPorModulo[modId];
+    if (!rows || !rows.length) return;
+    const cfg = MODULOS[modId];
+    let modPend = 0;
+    rows.forEach(r => {
+      if (r._cpf_norm) cpfsSiaps.add(r._cpf_norm);
+      if (r.situacao === 'completo') completos++;
+      else { pendentes++; modPend++; }
+      if (r.sem_cadastro) semCadastro++;
+      if (r.cond_situacao === 'ok') condAtiva++;
+      else if (r.cond_situacao === 'inativa') condInativa++;
+      else if (r.cond_situacao === 'somente_siaps') somenteSiaps++;
+      else if (r.cond_situacao === 'somente_pec') somentePec++;
+      // Critérios pendentes
+      if (cfg && cfg.criterios) {
+        cfg.criterios.forEach(c => {
+          if (r[c.k] === false) {
+            if (!critPendentes[c.k]) critPendentes[c.k] = { count: 0, desc: c.desc };
+            critPendentes[c.k].count++;
+          }
+        });
+      }
+    });
+    const pctPend = rows.length > 0 ? Math.round(modPend / rows.length * 100) : 0;
+    indicadoresPend.push({ nome: cfg ? cfg.titulo.split(' — ')[0] : modId, pctPendente: pctPend, total: rows.length, pend: modPend });
+  });
+
+  // Top 5 critérios pendentes
+  const topCrits = Object.entries(critPendentes)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([k, v]) => ({ label: `${k} — ${v.desc.substring(0, 30)}`, count: v.count }));
+
+  // Indicadores ordenados por % pendente decrescente
+  indicadoresPend.sort((a, b) => b.pctPendente - a.pctPendente);
+
+  return {
+    vincPEC: Object.keys(rawVinc || {}).length,
+    vincSIAPS: cpfsSiaps.size,
+    completos, pendentes, semCadastro,
+    condAtiva, condInativa, somenteSiaps, somentePec,
+    topCrits, indicadoresPend
+  };
+}
+
 function renderDashboard() {
   const alvo = document.getElementById('dashboard-municipal');
   if (!alvo) return;
@@ -472,6 +526,78 @@ function renderDashboard() {
     <div class="dash-disclaimer info">
       ℹ️ <span><strong>Valores calculados a partir das planilhas importadas.</strong> C2, C3, C4, C5, C6, C7 e CVAT usam as listas nominais do SIAPS — clique no card para ver a lista nominal. C1, M1, M2 e B1-B6 ainda dependem de outra fonte (SISAB ou e-SUS) e não exibem valor.</span>
     </div>`;
+
+  // ── Panorama Geral (acima dos grupos de indicadores) ──
+  const pan = computarPanoramaGeral();
+  const temDados = pan.vincPEC > 0 || pan.vincSIAPS > 0;
+  if (temDados) {
+    // Bloco A: Pessoas Únicas (KPI Tiles)
+    html += `<div class="dash-group">
+      <div class="dash-group-header"><h3>📊 Panorama Geral</h3><span>Dados consolidados</span></div>
+      <div class="panorama-section">
+        <div class="chart-kpis panorama-kpis">
+          <div class="chart-kpi cor-azul"><div class="val">${pan.vincPEC}</div><div class="lbl">Vinculados PEC</div></div>
+          <div class="chart-kpi cor-azul"><div class="val">${pan.vincSIAPS}</div><div class="lbl">Vinculados SIAPS</div></div>
+          <div class="chart-kpi cor-verde"><div class="val">${pan.completos}</div><div class="lbl">Indicadores Completos</div></div>
+          <div class="chart-kpi cor-ambar"><div class="val">${pan.pendentes}</div><div class="lbl">Indicadores Pendentes</div></div>
+          <div class="chart-kpi cor-vermelho"><div class="val">${pan.semCadastro}</div><div class="lbl">Não Vinculados ESF</div></div>
+        </div>`;
+
+    // Bloco B: Condições de Saúde PEC/SIAPS (Donut)
+    const condTotal = pan.condAtiva + pan.condInativa + pan.somenteSiaps + pan.somentePec;
+    if (condTotal > 0) {
+      const pA = pct(pan.condAtiva, condTotal), pI = pct(pan.condInativa, condTotal);
+      const pS = pct(pan.somenteSiaps, condTotal), pP = pct(pan.somentePec, condTotal);
+      const gA = pA, gI = pA + pI, gS = pA + pI + pS;
+      html += `<div class="panorama-row">
+        <div class="chart-card panorama-condicoes">
+          <div class="chart-card-title">Condições de Saúde PEC/SIAPS</div>
+          <div class="chart-donut-wrap">
+            <div class="chart-donut" style="background:conic-gradient(var(--verde) 0% ${gA}%, var(--ambar) ${gA}% ${gI}%, var(--azul) ${gI}% ${gS}%, var(--vermelho) ${gS}% 100%)">
+              <div class="chart-donut-center"><span class="num">${condTotal}</span><span class="lbl">Registros</span></div>
+            </div>
+            <div class="chart-donut-legend">
+              <div class="chart-legend-item"><span class="chart-legend-dot cor-ok"></span>Ativa<span class="chart-legend-val">${pan.condAtiva} (${pA}%)</span></div>
+              <div class="chart-legend-item"><span class="chart-legend-dot cor-sem"></span>Inativa<span class="chart-legend-val">${pan.condInativa} (${pI}%)</span></div>
+              <div class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--azul)"></span>Somente SIAPS<span class="chart-legend-val">${pan.somenteSiaps} (${pS}%)</span></div>
+              <div class="chart-legend-item"><span class="chart-legend-dot cor-pend"></span>Somente PEC<span class="chart-legend-val">${pan.somentePec} (${pP}%)</span></div>
+            </div>
+          </div>
+        </div>`;
+
+      // Bloco C: Principais Critérios Pendentes (Bar Chart)
+      if (pan.topCrits.length > 0) {
+        const maxCrit = Math.max(...pan.topCrits.map(c => c.count), 1);
+        html += `<div class="chart-card panorama-criterios">
+          <div class="chart-card-title">Principais Critérios Pendentes</div>
+          <div class="chart-bars">
+            ${pan.topCrits.map(c => `<div class="chart-bar-row">
+              <span class="chart-bar-label" title="${esc(c.label)}">${c.label}</span>
+              <div class="chart-bar-track"><div class="chart-bar-fill cor-pendente" style="width:${Math.round(c.count/maxCrit*100)}%"></div></div>
+              <span class="chart-bar-value">${c.count}</span>
+            </div>`).join('')}
+          </div>
+        </div>`;
+      }
+      html += `</div>`; // fecha panorama-row
+    }
+
+    // Bloco D: Principais Indicadores Pendentes (Bar Chart)
+    if (pan.indicadoresPend.length > 0) {
+      html += `<div class="chart-card panorama-indicadores">
+        <div class="chart-card-title">Indicadores por Pendência</div>
+        <div class="chart-bars">
+          ${pan.indicadoresPend.map(ind => `<div class="chart-bar-row">
+            <span class="chart-bar-label" title="${esc(ind.nome)}">${ind.nome}</span>
+            <div class="chart-bar-track"><div class="chart-bar-fill ${ind.pctPendente > 50 ? 'cor-pendente' : 'cor-completo'}" style="width:${ind.pctPendente}%"></div></div>
+            <span class="chart-bar-value">${ind.pctPendente}%</span>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    html += `</div></div>`; // fecha panorama-section e dash-group
+  }
 
   const grupos = new Map();
   INDICADORES_MUNICIPAIS.forEach(ind => {
@@ -1369,6 +1495,33 @@ function renderModuloCharts() {
   </div>`;
 
   
+  // ── Card 2: Condições de Saúde PEC (donut chart) ──
+  if (temCond) {
+    const condTotal = condAtiva + condInativa + somenteSiaps + somentePec;
+    const pAtiva = pct(condAtiva, condTotal);
+    const pInativa = pct(condInativa, condTotal);
+    const pSiaps = pct(somenteSiaps, condTotal);
+    const pPec = pct(somentePec, condTotal);
+    // conic-gradient com 4 segmentos
+    const gAtiva = pAtiva;
+    const gInativa = pAtiva + pInativa;
+    const gSiaps = pAtiva + pInativa + pSiaps;
+    html += `<div class="chart-card">
+      <div class="chart-card-title">Condições de Saúde PEC</div>
+      <div class="chart-donut-wrap">
+        <div class="chart-donut" style="background:conic-gradient(var(--verde) 0% ${gAtiva}%, var(--ambar) ${gAtiva}% ${gInativa}%, var(--azul) ${gInativa}% ${gSiaps}%, var(--vermelho) ${gSiaps}% 100%)">
+          <div class="chart-donut-center"><span class="num">${condTotal}</span><span class="lbl">Registros</span></div>
+        </div>
+        <div class="chart-donut-legend">
+          <div class="chart-legend-item"><span class="chart-legend-dot cor-ok"></span>Ativa<span class="chart-legend-val">${condAtiva} (${pAtiva}%)</span></div>
+          <div class="chart-legend-item"><span class="chart-legend-dot cor-sem"></span>Inativa<span class="chart-legend-val">${condInativa} (${pInativa}%)</span></div>
+          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--azul)"></span>Somente SIAPS<span class="chart-legend-val">${somenteSiaps} (${pSiaps}%)</span></div>
+          <div class="chart-legend-item"><span class="chart-legend-dot cor-pend"></span>Somente PEC<span class="chart-legend-val">${somentePec} (${pPec}%)</span></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
   // ── Card 3: Adesão por Critério (barras horizontais) ──
   const cfgC = MODULOS[moduloAtivo];
   if (cfgC && cfgC.criterios.length) {
