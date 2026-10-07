@@ -27,7 +27,7 @@ fi
 
 echo "Enviando $(git rev-parse --short HEAD) para $HOST:$DESTINO ..."
 git archive HEAD index.html css js \
-  | ssh -o IdentitiesOnly=yes -i "$CHAVE" "$HOST" "rm -rf '$DESTINO'/index.html '$DESTINO'/css '$DESTINO'/js && tar -x -C '$DESTINO'"
+  | ssh -o IdentitiesOnly=yes -i "$CHAVE" "$HOST" "sudo rm -rf '$DESTINO'/index.html '$DESTINO'/css '$DESTINO'/js && sudo tar -x -C '$DESTINO' && sudo chown -R kayquedev:kayquedev '$DESTINO'"
 
 # confere se o servidor já serve o arquivo publicado
 if [ "$(curl -s "$URL/js/app.js?x=$RANDOM" | tr -d '[:cntrl:]' | md5sum)" = "$(git show HEAD:js/app.js | tr -d '[:cntrl:]' | md5sum)" ]; then
