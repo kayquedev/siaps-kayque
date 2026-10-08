@@ -511,17 +511,10 @@ function computarPanoramaGeral() {
   });
 
   // Segundo passo: classificar CPFs únicos
-  // Uma pessoa é "completa" se completou 100% em pelo menos um indicador
-  // Uma pessoa é "pendente" se tem alguma pendência E nunca completou nenhum indicador
-  Object.values(cpfStatus).forEach(s => {
-    if (s.completo) cpfsCompletos.add(true); // apenas contador via Set size
-    if (s.pendente && !s.completo) cpfsPendentes.add(true);
-    if (s.semCadastro) cpfsSemCadastro.add(true);
-  });
-
-  // Contagem real de pessoas únicas por categoria
+  // Cidadão Completo = pontuou 100% em pelo menos um indicador
+  // Cidadão Pendente = NÃO pontuou 100% em nenhum indicador (incompleto)
   const unicosCompletos = Object.values(cpfStatus).filter(s => s.completo).length;
-  const unicosPendentes = Object.values(cpfStatus).filter(s => s.pendente && !s.completo).length;
+  const unicosPendentes = Object.values(cpfStatus).filter(s => !s.completo).length;
   const unicosSemCadastro = Object.values(cpfStatus).filter(s => s.semCadastro).length;
 
   // Top 5 critérios pendentes
@@ -570,8 +563,8 @@ function renderDashboard() {
         <div class="chart-kpis panorama-kpis">
           <div class="chart-kpi cor-azul"><div class="val">${pan.vincPEC}</div><div class="lbl">Vinculados PEC</div></div>
           <div class="chart-kpi cor-azul"><div class="val">${pan.vincSIAPS}</div><div class="lbl">Vinculados SIAPS</div></div>
-          <div class="chart-kpi cor-verde"><div class="val">${pan.completos}</div><div class="lbl">Indicadores Completos</div></div>
-          <div class="chart-kpi cor-ambar"><div class="val">${pan.pendentes}</div><div class="lbl">Indicadores Pendentes</div></div>
+          <div class="chart-kpi cor-verde"><div class="val">${pan.completos}</div><div class="lbl">Cidadãos Completos Indicadores</div></div>
+          <div class="chart-kpi cor-ambar"><div class="val">${pan.pendentes}</div><div class="lbl">Cidadãos Pendentes Indicadores</div></div>
           <div class="chart-kpi cor-vermelho"><div class="val">${pan.semCadastro}</div><div class="lbl">Não Vinculados ESF</div></div>
         </div>`;
 
