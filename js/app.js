@@ -459,12 +459,18 @@ function mediaPontos(id) {
 }
 
 // Computa agregados consolidados de todos os módulos para o Panorama Geral
+// Pessoas únicas: deduplicação por CPF em todos os indicadores
 function computarPanoramaGeral() {
   const cpfsSiaps = new Set();
-  let completos = 0, pendentes = 0, semCadastro = 0;
+  const cpfsCompletos = new Set();   // CPFs que completaram 100% em pelo menos um indicador
+  const cpfsPendentes = new Set();   // CPFs que NÃO completaram 100% em nenhum indicador onde aparecem
+  const cpfsSemCadastro = new Set();
   let condAtiva = 0, condInativa = 0, somenteSiaps = 0, somentePec = 0;
   const critPendentes = {}; // { "A": { count, desc, modulo } }
   const indicadoresPend = []; // [ { nome, pctPendente, total, pend } ]
+
+  // Primeiro passo: coletar todos os CPFs e seus status por módulo
+  const cpfStatus = {}; // { cpf: { completo: bool, pendente: bool, semCadastro: bool } }
 
   Object.keys(resultadosPorModulo).forEach(modId => {
     const rows = resultadosPorModulo[modId];
@@ -472,10 +478,20 @@ function computarPanoramaGeral() {
     const cfg = MODULOS[modId];
     let modPend = 0;
     rows.forEach(r => {
-      if (r._cpf_norm) cpfsSiaps.add(r._cpf_norm);
-      if (r.situacao === 'completo') completos++;
-      else { pendentes++; modPend++; }
-      if (r.sem_cadastro) semCadastro++;
+      const cpf = r._cpf_norm;
+      if (cpf) {
+        cpfsSiaps.add(cpf);
+        if (!cpfStatus[cpf]) cpfStatus[cpf] = { completo: false, pendente: false, semCadastro: false };
+        if (r.situacao === 'completo') {
+          cpfStatus[cpf].completo = true;
+        } else {
+          cpfStatus[cpf].pendente = true;
+          modPend++;
+        }
+        if (r.sem_cadastro) {
+          cpfStatus[cpf].semCadastro = true;
+        }
+      }
       if (r.cond_situacao === 'ok') condAtiva++;
       else if (r.cond_situacao === 'inativa') condInativa++;
       else if (r.cond_situacao === 'somente_siaps') somenteSiaps++;
@@ -494,6 +510,20 @@ function computarPanoramaGeral() {
     indicadoresPend.push({ nome: cfg ? cfg.titulo.split(' — ')[0] : modId, pctPendente: pctPend, total: rows.length, pend: modPend });
   });
 
+  // Segundo passo: classificar CPFs únicos
+  // Uma pessoa é "completa" se completou 100% em pelo menos um indicador
+  // Uma pessoa é "pendente" se tem alguma pendência E nunca completou nenhum indicador
+  Object.values(cpfStatus).forEach(s => {
+    if (s.completo) cpfsCompletos.add(true); // apenas contador via Set size
+    if (s.pendente && !s.completo) cpfsPendentes.add(true);
+    if (s.semCadastro) cpfsSemCadastro.add(true);
+  });
+
+  // Contagem real de pessoas únicas por categoria
+  const unicosCompletos = Object.values(cpfStatus).filter(s => s.completo).length;
+  const unicosPendentes = Object.values(cpfStatus).filter(s => s.pendente && !s.completo).length;
+  const unicosSemCadastro = Object.values(cpfStatus).filter(s => s.semCadastro).length;
+
   // Top 5 critérios pendentes
   const topCrits = Object.entries(critPendentes)
     .sort((a, b) => b[1].count - a[1].count)
@@ -506,7 +536,9 @@ function computarPanoramaGeral() {
   return {
     vincPEC: Object.keys(rawVinc || {}).length,
     vincSIAPS: cpfsSiaps.size,
-    completos, pendentes, semCadastro,
+    completos: unicosCompletos,
+    pendentes: unicosPendentes,
+    semCadastro: unicosSemCadastro,
     condAtiva, condInativa, somenteSiaps, somentePec,
     topCrits, indicadoresPend
   };
