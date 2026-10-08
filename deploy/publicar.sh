@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publica o SIAPS (site estático) em https://siaps.kayque.site
+# Publica o SIAPS (site estático) em https://siaps.kodesaude.com.br
 #
 # Uso (a partir da raiz do projeto):
 #   bash deploy/publicar.sh
@@ -10,8 +10,8 @@ set -euo pipefail
 
 HOST="${SIAPS_HOST:-kayquedev@137.131.232.39}"
 CHAVE="${SIAPS_CHAVE:-C:/Users/kayqu/.ssh/siaps_deploy}"
-DESTINO="${SIAPS_DESTINO:-/var/www/siaps.kayque.site/html}"
-URL="https://siaps.kayque.site"
+DESTINO="${SIAPS_DESTINO:-/var/www/siaps.kodesaude.com.br/html}"
+URL="https://siaps.kodesaude.com.br"
 
 cd "$(dirname "$0")/.."
 

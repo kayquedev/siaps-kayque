@@ -1492,19 +1492,21 @@ function processarLinhaCVAT(s, v, cond) {
 // ─────────────────────────────────────────────
 function renderModuloCharts() {
   const alvo = document.getElementById('modulo-charts');
-  if (!alvo || !merged.length) { if (alvo) alvo.innerHTML = ''; return; }
+  // Usa filtered (já aplica filtro de equipe) em vez de merged para os cards
+  const dados = filtered.length ? filtered : merged;
+  if (!alvo || !dados.length) { if (alvo) alvo.innerHTML = ''; return; }
 
-  const total = merged.length;
-  const completo = merged.filter(r => r.situacao === 'completo').length;
-  const pendente = merged.filter(r => r.situacao === 'pendente').length;
-  const semCad   = merged.filter(r => r.sem_cadastro).length;
+  const total = dados.length;
+  const completo = dados.filter(r => r.situacao === 'completo').length;
+  const pendente = dados.filter(r => r.situacao === 'pendente').length;
+  const semCad   = dados.filter(r => r.sem_cadastro).length;
 
   // Contagens de condição PEC
   const temCond = !!condicoesMapPorModulo[moduloAtivo];
-  const somenteSiaps = temCond ? merged.filter(r => r.cond_situacao === 'somente_siaps').length : 0;
-  const somentePec   = temCond ? merged.filter(r => r.cond_situacao === 'somente_pec').length : 0;
-  const condAtiva    = temCond ? merged.filter(r => r.cond_situacao === 'ok').length : 0;
-  const condInativa  = temCond ? merged.filter(r => r.cond_situacao === 'inativa').length : 0;
+  const somenteSiaps = temCond ? dados.filter(r => r.cond_situacao === 'somente_siaps').length : 0;
+  const somentePec   = temCond ? dados.filter(r => r.cond_situacao === 'somente_pec').length : 0;
+  const condAtiva    = temCond ? dados.filter(r => r.cond_situacao === 'ok').length : 0;
+  const condInativa  = temCond ? dados.filter(r => r.cond_situacao === 'inativa').length : 0;
 
   let html = '';
 
@@ -1634,6 +1636,8 @@ function filtrar() {
     `${filtered.length} de ${merged.length} registros`;
 
   sortData(); page = 0;
+  // Atualiza cards do cabeçalho com dados filtrados (reflete filtro de equipe)
+  renderModuloCharts();
   const tabAtivaEl = document.querySelector('.tab-btn.active');
   if (tabAtivaEl && tabAtivaEl.dataset.tab === 'consolidado') renderConsolidado();
   else renderTable();
