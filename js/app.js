@@ -478,7 +478,7 @@ function computarPanoramaGeral() {
     const cfg = MODULOS[modId];
     let modPend = 0;
     rows.forEach(r => {
-      const cpf = r._cpf_norm;
+      const cpf = r.cpf_norm || r._cpf_norm;
       if (cpf) {
         cpfsSiaps.add(cpf);
         if (!cpfStatus[cpf]) cpfStatus[cpf] = { completo: false, pendente: false, semCadastro: false };
